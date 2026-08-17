@@ -1,0 +1,37 @@
+fish_color_autosuggestion '969896'  '--underline=False'
+fish_color_cancel '--underline=False'  '--reverse'
+fish_color_command 'c397d8'  '--underline=False'
+fish_color_comment 'e7c547'  '--underline=False'
+fish_color_cwd 'green'  '--underline=False'
+fish_color_cwd_root 'red'  '--underline=False'
+fish_color_end 'c397d8'  '--underline=False'
+fish_color_error 'd54e53'  '--underline=False'
+fish_color_escape '00a6b2'  '--underline=False'
+fish_color_history_current '--bold'  '--underline=False'
+fish_color_host 'normal'  '--underline=False'
+fish_color_host_remote 'yellow'  '--underline=False'
+fish_color_keyword 'c397d8'  '--underline=False'
+fish_color_normal 'normal'  '--underline=False'
+fish_color_operator '00a6b2'  '--underline=False'
+fish_color_option '7aa6da'  '--underline=False'
+fish_color_param '7aa6da'  '--underline=False'
+fish_color_quote 'b9ca4a'  '--underline=False'
+fish_color_redirection '70c0b1'  '--underline=False'
+fish_color_search_match 'white'  '--bold'  '--underline=False'  '--background==brblack'
+fish_color_selection 'white'  '--bold'  '--underline=False'  '--background==brblack'
+fish_color_status 'red'  '--underline=False'
+fish_color_user 'brgreen'  '--underline=False'
+fish_color_valid_path --underline=single
+fish_pager_color_background
+fish_pager_color_completion 'normal'  '--underline=False'
+fish_pager_color_description 'B3A06D'  '--underline=False'
+fish_pager_color_prefix 'normal'  '--bold'  '--underline=single'
+fish_pager_color_progress 'brwhite'  '--bold'  '--underline=False'  '--background==cyan'
+fish_pager_color_secondary_background
+fish_pager_color_secondary_completion
+fish_pager_color_secondary_description
+fish_pager_color_secondary_prefix
+fish_pager_color_selected_background '--underline=False'  '--background==brblack'
+fish_pager_color_selected_completion
+fish_pager_color_selected_description
+fish_pager_color_selected_prefix

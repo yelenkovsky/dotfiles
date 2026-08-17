@@ -1,0 +1,44 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "adolfo.librepixels.com",
+                "Name": "zayronxio"
+            }
+        ],
+        "Category": "",
+        "ServiceTypes": [
+            "Plasma/LookAndFeel"
+        ],
+        "Description": "dark theme with light accent",
+        "Id": "Catppuccin.Macchiato",
+        "License": "GPLv3+",
+        "Name": "Catppuccin Macchiato",
+        "Website": "https://store.kde.org/p/2272108/"
+        },
+        "X-KPackage-Dependencies": [
+        "kns://colorschemes.knsrc/api.kde-look.org/2271054",
+        "kns://wallpaperplugin.knsrc/api.kde-look.org/2318107",
+        "kns://colorschemes.knsrc/api.kde-look.org/2272105",
+        "kns://colorschemes.knsrc/api.kde-look.org/2269981",
+        "kns://plasma-themes.knsrc/api.kde-look.org/2218601",
+        "kns://plasmoids.knsrc/api.kde-look.org/2238525",
+        "kns://icons.knsrc/api.kde-look.org/2239645",
+        "kns://xcursor.knsrc/api.kde-look.org/2083798",
+        "kns://lookandfeel.knsrc/api.kde-look.org/2269983",
+        "kns://plasmoids.knsrc/api.kde-look.org/2137418",
+        "kns://plasmoids.knsrc/api.kde-look.org/2136636",
+        "kns://colorschemes.knsrc/api.kde-look.org/2269947",
+        "kns://aurorae.knsrc/api.kde-look.org/2254780",
+        "kns://plasmoids.knsrc/api.kde-look.org/2147882",
+        "kns://wallpaper.knsrc/api.kde-look.org/2271053",
+        "kns://wallpaper.knsrc/api.kde-look.org/2269979",
+        "kns://sddmtheme.knsrc/api.kde-look.org/2135240",
+        "kns://plasmoids.knsrc/api.kde-look.org/2230382",
+        "kns://plasmoids.knsrc/api.kde-look.org/2136288",
+        "kns://plasmoids.knsrc/api.kde-look.org/2278769",
+        "kns://plasmoids.knsrc/api.kde-look.org/2147850",
+        "kns://plasmoids.knsrc/api.kde-look.org/2179317"
+         ]
+         }

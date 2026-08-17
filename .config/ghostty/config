@@ -1,0 +1,4 @@
+theme = Catppuccin Frappe
+font-family="Fira Code Nerd Font"
+command = /usr/bin/fish
+

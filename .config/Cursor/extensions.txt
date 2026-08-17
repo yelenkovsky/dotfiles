@@ -1,0 +1,15 @@
+anysphere.remote-containers-1.0.38
+anysphere.remote-ssh-1.1.14
+aykutsarac.jsoncrack-vscode-5.1.0-universal
+clemenspeters.format-json-1.0.3-universal
+dirsouza.reload-cursor-editor-0.0.1-universal
+extensions.json
+lohsebhipolg2s.theme-aurora-borealis-1.0.2-universal
+markdown-inline-preview.markdown-inline-preview-1.4.7-universal
+ms-azuretools.vscode-containers-2.4.5-universal
+ms-azuretools.vscode-docker-2.0.0-universal
+pkief.material-icon-theme-5.37.0-universal
+pkief.material-product-icons-1.7.1-universal
+tomoki1207.pdf-1.2.2-universal
+vscodevim.vim-1.32.4-universal
+zhuangtongfa.material-theme-3.19.0-universal
