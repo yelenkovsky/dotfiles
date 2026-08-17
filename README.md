@@ -2,8 +2,6 @@
 
 Public Fish, Ghostty, Vim, Cursor, and Catppuccin setup for a Linux desktop.
 
-Machine-specific app state (KDE rc dumps, OBS, Spotify, credentials) lives in a private repo and is not here.
-
 ## Install
 
 ```bash
