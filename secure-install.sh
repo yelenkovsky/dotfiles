@@ -36,10 +36,12 @@ PACMAN_DESKTOP_PACKAGES=(
 )
 
 PACMAN_UTIL_PACKAGES=(
+  android-tools
   cpupower
   eza
   fzf
   pv
+  scrcpy
   stow
   tree
   unzip

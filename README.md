@@ -10,6 +10,7 @@ cd ~/dotfiles
 chmod +x install.sh secure-install.sh setup/*.sh
 ./secure-install.sh --yes   # packages; Catppuccin KDE installer is still interactive
 ./install.sh                # symlink configs into $HOME
+./setup/setup-android-usb.sh  # optional: Android USB udev rules for adb/scrcpy
 ```
 
 `install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`.
@@ -35,6 +36,9 @@ On first Catppuccin KDE prompt, choose **Mocha** with the **Flamingo** accent.
 
 - `setup/artix-dinit-audio.sh` — PipeWire on Artix + dinit
 - `setup/setup-wireshark.sh` — capture group permissions (does not install Wireshark)
+- `setup/setup-android-usb.sh` — Android USB udev rules for `adb` / `fastboot` / `scrcpy` (Artix/dinit; no systemd). Prefers the `android-udev` package, otherwise clones [M0Rf30/android-udev-rules](https://github.com/M0Rf30/android-udev-rules).
+
+After USB setup, log out so the `adbusers` group applies, enable USB debugging on the phone, replug, then `adb devices` or `scrcpy-usb`.
 
 ## Updating
 
