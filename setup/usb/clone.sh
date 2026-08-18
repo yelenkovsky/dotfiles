@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Clone the private companion repo into ./usb (gitignored).
-# https://github.com/yelenkovsky/usb stays out of the public tree.
+# Clone https://github.com/yelenkovsky/usb for local use.
+# The public copy of its scripts lives in this directory.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DOTFILES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-USB_DIR="${USB_DIR:-$DOTFILES_DIR/usb}"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+USB_DIR="${USB_DIR:-$HOME/.local/src/usb}"
 USB_REPO_URL="${USB_REPO_URL:-https://github.com/yelenkovsky/usb.git}"
 USB_SSH_URL="${USB_SSH_URL:-git@github.com:yelenkovsky/usb.git}"
 
@@ -17,7 +17,8 @@ Usage: $(basename "$0") [--ssh]
 Clone https://github.com/yelenkovsky/usb into:
   $USB_DIR
 
-The directory is gitignored so private files are not committed here.
+Scripts that belong in the public dotfiles stay in:
+  $SCRIPT_DIR
 
 Options:
   --ssh   Clone with SSH instead of HTTPS
@@ -54,5 +55,6 @@ if [ -e "$USB_DIR" ]; then
 fi
 
 echo "Cloning $USB_REPO_URL -> $USB_DIR"
+mkdir -p "$(dirname "$USB_DIR")"
 git clone "$USB_REPO_URL" "$USB_DIR"
-echo "Done. Re-run ./install.sh to apply the usb overlay."
+echo "Done. Run $SCRIPT_DIR/install.sh to apply it."

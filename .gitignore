@@ -4,6 +4,3 @@ Thumbs.db
 *.swo
 *~
 *.log
-
-# Private companion clone: https://github.com/yelenkovsky/usb
-/usb/

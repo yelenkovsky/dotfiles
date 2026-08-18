@@ -7,10 +7,11 @@ Public Fish, Ghostty, Vim, Cursor, and Catppuccin setup for a Linux desktop.
 ```bash
 git clone https://github.com/yelenkovsky/dotfiles.git ~/dotfiles
 cd ~/dotfiles
-chmod +x install.sh secure-install.sh setup/*.sh
+chmod +x install.sh secure-install.sh setup/*.sh setup/usb/*.sh
 ./secure-install.sh --yes   # packages; Catppuccin KDE installer is still interactive
-./setup/clone-usb.sh        # optional private overlay: https://github.com/yelenkovsky/usb
 ./install.sh                # symlink configs into $HOME
+./setup/usb/clone.sh        # optional: clone https://github.com/yelenkovsky/usb
+./setup/usb/install.sh      # optional: apply that repo
 ```
 
 `install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`.
@@ -34,7 +35,7 @@ On first Catppuccin KDE prompt, choose **Mocha** with the **Flamingo** accent.
 
 ## Extra setup
 
-- `setup/clone-usb.sh` — clone the private [yelenkovsky/usb](https://github.com/yelenkovsky/usb) overlay into `./usb` (gitignored). `install.sh` runs that repo's `install.sh` if present, otherwise links its files into `$HOME`.
+- `setup/usb/` — [yelenkovsky/usb](https://github.com/yelenkovsky/usb): `clone.sh` then `install.sh`
 - `setup/artix-dinit-audio.sh` — PipeWire on Artix + dinit
 - `setup/setup-wireshark.sh` — capture group permissions (does not install Wireshark)
 
