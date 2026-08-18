@@ -1,6 +1,6 @@
 #!/bin/bash
 # Link this repository's configs into $HOME.
-# Clone anywhere; paths are resolved from this script's directory.
+# Paths are resolved from this script's directory.
 
 set -e
 
@@ -37,7 +37,7 @@ link_if_present() {
     fi
 }
 
-echo "Installing public dotfiles from $DOTFILES_DIR"
+echo "Installing from $DOTFILES_DIR"
 
 echo ""
 echo "Editor and git"
