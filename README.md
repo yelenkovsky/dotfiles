@@ -10,6 +10,8 @@ cd ~/dotfiles
 chmod +x install.sh secure-install.sh setup/*.sh setup/usb/*.sh
 ./secure-install.sh --yes   # packages; Catppuccin KDE installer is still interactive
 ./install.sh                # symlink configs into $HOME
+./setup/usb/clone.sh        # optional: clone https://github.com/yelenkovsky/usb
+./setup/usb/install.sh      # optional: apply that repo
 ```
 
 `install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`.
@@ -33,7 +35,7 @@ On first Catppuccin KDE prompt, choose **Mocha** with the **Flamingo** accent.
 
 ## Extra setup
 
-- `setup/usb/` — `clone.sh`, `install.sh`
+- `setup/usb/` — [yelenkovsky/usb](https://github.com/yelenkovsky/usb): `clone.sh` then `install.sh`
 - `setup/artix-dinit-audio.sh` — PipeWire on Artix + dinit
 - `setup/setup-wireshark.sh` — capture group permissions (does not install Wireshark)
 

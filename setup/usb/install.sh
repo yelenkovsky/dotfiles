@@ -51,8 +51,11 @@ done
 if [ -z "$usb_dir" ]; then
   echo "usb repo not found. Clone it first:"
   echo "  $SCRIPT_DIR/clone.sh"
+  echo "Expected: https://github.com/yelenkovsky/usb"
   exit 1
 fi
+
+echo "Applying usb repo from $usb_dir"
 
 if [ -x "$usb_dir/install.sh" ]; then
   echo "Running $usb_dir/install.sh"

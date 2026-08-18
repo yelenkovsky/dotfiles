@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DOTFILES_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 USB_DIR="${USB_DIR:-$HOME/.local/src/usb}"
 USB_REPO_URL="${USB_REPO_URL:-https://github.com/yelenkovsky/usb.git}"
 USB_SSH_URL="${USB_SSH_URL:-git@github.com:yelenkovsky/usb.git}"
@@ -11,8 +12,11 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [--ssh]
 
-Clone into:
+Clone https://github.com/yelenkovsky/usb into:
   $USB_DIR
+
+Scripts that belong in the public dotfiles stay in:
+  $SCRIPT_DIR
 
 Options:
   --ssh   Clone with SSH instead of HTTPS
