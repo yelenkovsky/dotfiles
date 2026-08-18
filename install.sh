@@ -92,6 +92,58 @@ if [ -d "$DOTFILES_DIR/plasma-themes/Catppuccin.Macchiato" ]; then
     sudo ln -s "$DOTFILES_DIR/plasma-themes/Catppuccin.Macchiato" "/usr/share/plasma/look-and-feel/Catppuccin.Macchiato"
 fi
 
+should_skip_usb_overlay_path() {
+    local rel="$1"
+    case "$rel" in
+        .git|.git/*|README.md|LICENSE|LICENSE.md|install.sh|secure-install.sh|.gitignore|.github|.github/*)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+link_usb_overlay() {
+    local usb_dir=""
+    local candidate
+    local rel
+    local source
+    local target
+
+    for candidate in "$DOTFILES_DIR/usb" "$DOTFILES_DIR/../usb" "$HOME/usb"; do
+        if [ -d "$candidate" ]; then
+            usb_dir="$(cd "$candidate" && pwd)"
+            break
+        fi
+    done
+
+    if [ -z "$usb_dir" ]; then
+        echo ""
+        echo "Private usb overlay not found (clone https://github.com/yelenkovsky/usb into $DOTFILES_DIR/usb)"
+        echo "Run ./setup/clone-usb.sh when you have access to that repo, then re-run ./install.sh"
+        return 0
+    fi
+
+    echo ""
+    echo "Installing usb overlay from $usb_dir"
+
+    if [ -x "$usb_dir/install.sh" ]; then
+        echo "Running $usb_dir/install.sh"
+        "$usb_dir/install.sh"
+        return 0
+    fi
+
+    while IFS= read -r -d '' source; do
+        rel="${source#"$usb_dir"/}"
+        if should_skip_usb_overlay_path "$rel"; then
+            continue
+        fi
+        target="$HOME/$rel"
+        create_symlink "$source" "$target"
+    done < <(find "$usb_dir" -mindepth 1 \( -type f -o -type l \) -print0)
+}
+
+link_usb_overlay
+
 echo ""
 echo "Checking Catppuccin KDE colorscheme"
 if compgen -G "/usr/share/color-schemes/${EXPECTED_KDE_COLOR_SCHEME}.colors" >/dev/null || \
