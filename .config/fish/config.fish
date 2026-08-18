@@ -29,10 +29,5 @@ if status is-interactive
     
     # open
     alias sf="source ~/.config/fish/config.fish"
-    alias ce="cursor ~/cursor-env"
-    alias cs="cursor ~/Respos/supabase"
 end
 fish_add_path $HOME/.local/bin
-
-# The next line updates PATH for the Google Cloud SDK.
-if [ -f '/home/xbloc/Downloads/google-cloud-sdk/path.fish.inc' ]; . '/home/xbloc/Downloads/google-cloud-sdk/path.fish.inc'; end
