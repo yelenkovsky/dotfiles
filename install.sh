@@ -139,7 +139,7 @@ link_usb_overlay() {
         fi
         target="$HOME/$rel"
         create_symlink "$source" "$target"
-    done < <(find "$usb_dir" -mindepth 1 \( -type f -o -type l \) -print0)
+    done < <(find "$usb_dir" \( -path "$usb_dir/.git" -o -path "$usb_dir/.github" \) -prune -o \( -type f -o -type l \) -print0)
 }
 
 link_usb_overlay
