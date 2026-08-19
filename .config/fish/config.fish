@@ -1,5 +1,8 @@
 set -g fish_greeting
 
+# Proton Pass desktop SSH agent (do not hardcode the home path)
+set -gx SSH_AUTH_SOCK $HOME/.ssh/proton-pass-ssh-agent.sock
+
 if status is-interactive
     starship init fish | source
 
