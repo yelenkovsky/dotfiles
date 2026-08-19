@@ -29,8 +29,14 @@ NEXTCLOUD_LATEST_RELEASE_URL="https://github.com/nextcloud-releases/desktop/rele
 NEXTCLOUD_INSTALL_DIR="/opt/nextcloud"
 NEXTCLOUD_APPIMAGE_NAME="Nextcloud.AppImage"
 NEXTCLOUD_DOWNLOAD="$STATE_DIR/Nextcloud-$TIMESTAMP.AppImage"
+NEXTCLOUD_SIG="$STATE_DIR/Nextcloud-$TIMESTAMP.AppImage.asc"
+NEXTCLOUD_GPG_KEY="$STATE_DIR/nextcloud-signing-key-$TIMESTAMP.asc"
+NEXTCLOUD_GPG_HOME="$STATE_DIR/nextcloud-gnupg-$TIMESTAMP"
 NEXTCLOUD_ICON_DIR="$STATE_DIR/nextcloud-icon-$TIMESTAMP"
 NEXTCLOUD_DOWNLOAD_URL=""
+NEXTCLOUD_GPG_KEY_URL="https://nextcloud.com/nextcloud.asc"
+# Nextcloud Security <security@nextcloud.com>; pin so a swapped key file cannot pass.
+NEXTCLOUD_GPG_FINGERPRINT="28806A878AE423A28372792ED75899B9A724937A"
 PROTON_DRIVE_INDEX_URL="https://proton.me/download/drive/cli/index.html"
 PROTON_DRIVE_PLATFORM="linux/x64"
 PROTON_DRIVE_INDEX="$STATE_DIR/proton-drive-index-$TIMESTAMP.html"
@@ -82,6 +88,7 @@ PACMAN_UTIL_PACKAGES=(
   cpupower
   eza
   fzf
+  gnupg
   pv
   stow
   tree
@@ -567,6 +574,41 @@ resolve_nextcloud_appimage_url() {
 
 download_nextcloud_appimage() {
   download_url_to_file "$NEXTCLOUD_DOWNLOAD" "$NEXTCLOUD_DOWNLOAD_URL"
+  download_url_to_file "$NEXTCLOUD_SIG" "${NEXTCLOUD_DOWNLOAD_URL}.asc"
+  download_url_to_file "$NEXTCLOUD_GPG_KEY" "$NEXTCLOUD_GPG_KEY_URL"
+}
+
+verify_nextcloud_appimage_signature() {
+  local imported_fingerprint=""
+  local status=""
+
+  rm -rf "$NEXTCLOUD_GPG_HOME"
+  mkdir -m 700 -p "$NEXTCLOUD_GPG_HOME"
+
+  status="$(
+    export GNUPGHOME="$NEXTCLOUD_GPG_HOME"
+    gpg --batch --import "$NEXTCLOUD_GPG_KEY" >/dev/null
+    gpg --batch --with-colons --fingerprint
+  )" || return 1
+
+  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
+  if [ "$imported_fingerprint" != "$NEXTCLOUD_GPG_FINGERPRINT" ]; then
+    log "Nextcloud signing key fingerprint mismatch (expected $NEXTCLOUD_GPG_FINGERPRINT, got $imported_fingerprint)"
+    return 1
+  fi
+
+  status="$(
+    export GNUPGHOME="$NEXTCLOUD_GPG_HOME"
+    gpg --batch --status-fd 1 --verify "$NEXTCLOUD_SIG" "$NEXTCLOUD_DOWNLOAD" 2>/dev/null
+  )" || true
+
+  if ! printf '%s\n' "$status" | grep -q "VALIDSIG $NEXTCLOUD_GPG_FINGERPRINT"; then
+    log "Nextcloud AppImage GPG verification failed"
+    return 1
+  fi
+
+  log "Verified Nextcloud AppImage GPG signature (VALIDSIG $NEXTCLOUD_GPG_FINGERPRINT)"
+  return 0
 }
 
 extract_nextcloud_icon() {
@@ -622,7 +664,7 @@ SingleMainWindow=true
 EOF
   sudo chmod 644 /usr/share/applications/nextcloud.desktop
   extract_nextcloud_icon
-  rm -rf "$NEXTCLOUD_ICON_DIR" "$NEXTCLOUD_DOWNLOAD"
+  rm -rf "$NEXTCLOUD_ICON_DIR" "$NEXTCLOUD_DOWNLOAD" "$NEXTCLOUD_SIG" "$NEXTCLOUD_GPG_KEY" "$NEXTCLOUD_GPG_HOME"
 }
 
 install_nextcloud() {
@@ -638,6 +680,13 @@ install_nextcloud() {
     FAILURES+=("resolve Nextcloud AppImage URL (missing required command: curl, wget, or gh)")
     record_status "FAIL" "resolve Nextcloud AppImage URL"
     log "Skipping Nextcloud install because curl, wget, and gh are not installed"
+    return 0
+  fi
+
+  if ! command -v gpg >/dev/null 2>&1; then
+    FAILURES+=("verify Nextcloud AppImage signature (missing required command: gpg)")
+    record_status "FAIL" "verify Nextcloud AppImage signature"
+    log "Skipping Nextcloud install because gpg is not installed"
     return 0
   fi
 
@@ -672,6 +721,19 @@ install_nextcloud() {
     FAILURES+=("download Nextcloud desktop AppImage (not an ELF/AppImage)")
     record_status "FAIL" "download Nextcloud desktop AppImage"
     log "Downloaded Nextcloud file is not an ELF AppImage: $NEXTCLOUD_DOWNLOAD"
+    return 0
+  fi
+
+  if [ ! -s "$NEXTCLOUD_SIG" ]; then
+    FAILURES+=("download Nextcloud AppImage signature (empty file)")
+    record_status "FAIL" "download Nextcloud AppImage signature"
+    log "Downloaded Nextcloud signature is empty: $NEXTCLOUD_SIG"
+    return 0
+  fi
+
+  if ! verify_nextcloud_appimage_signature; then
+    FAILURES+=("verify Nextcloud AppImage GPG signature")
+    record_status "FAIL" "verify Nextcloud AppImage GPG signature"
     return 0
   fi
 
