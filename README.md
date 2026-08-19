@@ -28,6 +28,7 @@ On first Catppuccin KDE prompt, choose **Mocha** with the **Flamingo** accent.
 | `.config/eza` | `ls` replacement theme |
 | `.config/gh/config.yml` | GitHub CLI (no `hosts.yml`) |
 | `.config/Cursor/` | Editor settings, keybindings, snippets |
+| `.cursor/skills/add-secure-install-app` | Cursor skill for adding apps to `secure-install.sh` |
 | `.config/kdedefaults`, `nwg-look`, `xsettingsd` | Theme helpers |
 | `plasma-themes/Catppuccin.Macchiato` | Plasma look-and-feel (system-wide symlink) |
 
