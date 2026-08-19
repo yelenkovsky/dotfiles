@@ -163,7 +163,7 @@ Options:
   --skip-nextcloud Skip the Nextcloud desktop AppImage download and install
   --skip-proton-drive  Skip the Proton Drive CLI download and install
   --skip-pass-cli  Skip the Proton Pass CLI download and install
-  --skip-proton-pass  Skip the Proton Pass desktop .deb extract and install
+  --skip-proton-pass  Skip the Proton Pass desktop Stable .deb extract and install
   --skip-betterbird Skip the Betterbird tarball download and install
   --skip-brave-origin-nightly  Skip the Brave Origin Nightly zip download and install
   --skip-cursor    Skip the Cursor nightly (dev) AppImage download and install
@@ -992,7 +992,11 @@ parse_proton_pass_deb() {
   local parsed
 
   parsed="$(awk '
-    /"Url":/ && /proton-pass_.*_amd64\.deb/ && url == "" {
+    /"CategoryName":/ {
+      in_stable = ($0 ~ /"Stable"/)
+      next
+    }
+    in_stable && /"Url":/ && /proton-pass_.*_amd64\.deb/ && url == "" {
       if (match($0, /https:[^"]+/)) {
         url = substr($0, RSTART, RLENGTH)
       }
