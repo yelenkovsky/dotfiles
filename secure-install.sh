@@ -51,6 +51,20 @@ PROTON_PASS_DEB="$STATE_DIR/proton-pass-$TIMESTAMP.deb"
 PROTON_PASS_INSTALL_DIR="/opt/proton-pass"
 PROTON_PASS_DEB_URL=""
 PROTON_PASS_SHA512=""
+PROTON_BRIDGE_LATEST_RELEASE_URL="https://github.com/ProtonMail/proton-bridge/releases/latest"
+PROTON_BRIDGE_GPG_KEY_URL="https://github.com/ProtonMail/proton-bridge/releases/latest/download/bridge_pubkey.gpg"
+# Proton Technologies AG (ProtonMail Bridge developers) <bridge@protonmail.ch>
+PROTON_BRIDGE_GPG_FINGERPRINT="D51E64D3E63EDC3EEF7864CEE2C75D68E6234B07"
+PROTON_BRIDGE_DEB="$STATE_DIR/proton-bridge-$TIMESTAMP.deb"
+PROTON_BRIDGE_SIG="$STATE_DIR/proton-bridge-$TIMESTAMP.deb.sig"
+PROTON_BRIDGE_GPG_KEY="$STATE_DIR/proton-bridge-signing-key-$TIMESTAMP.gpg"
+PROTON_BRIDGE_GPG_HOME="$STATE_DIR/proton-bridge-gnupg-$TIMESTAMP"
+PROTON_BRIDGE_INSTALL_DIR="/opt/proton-bridge"
+PROTON_BRIDGE_DOWNLOAD_URL=""
+# Vendor PKGBUILD runtime dep for the `bridge` backend (libfido2.so.1).
+PROTON_BRIDGE_RUNTIME_PACKAGES=(
+  libfido2
+)
 BETTERBIRD_GETLOC_URL="https://www.betterbird.eu/downloads/getloc.php?os=linux&lang=en-US&version=release"
 BETTERBIRD_SHA256_DIR="https://www.betterbird.eu/downloads"
 BETTERBIRD_INSTALL_DIR="/opt/betterbird"
@@ -58,6 +72,24 @@ BETTERBIRD_DOWNLOAD="$STATE_DIR/betterbird-$TIMESTAMP.tar.xz"
 BETTERBIRD_SHA256_FILE="$STATE_DIR/betterbird-$TIMESTAMP.sha256"
 BETTERBIRD_DOWNLOAD_URL=""
 BETTERBIRD_SHA256=""
+# Official linux-x86_64 glibc tarball via the unversioned release redirect.
+# Zotero does not publish SHA-256 next to the file; verify xz magic + size.
+ZOTERO_DOWNLOAD_URL="https://www.zotero.org/download/client/dl?channel=release&platform=linux-x86_64"
+ZOTERO_INSTALL_DIR="/opt/zotero"
+ZOTERO_DOWNLOAD="$STATE_DIR/zotero-$TIMESTAMP.tar.xz"
+ELEMENT_PACKAGES_URL="https://packages.element.io/debian/dists/default/main/binary-amd64/Packages"
+ELEMENT_INRELEASE_URL="https://packages.element.io/debian/dists/default/InRelease"
+ELEMENT_GPG_KEY_URL="https://packages.element.io/debian/element-io-archive-keyring.gpg"
+# riot.im packages <packages@riot.im>; pin so a swapped keyring cannot pass.
+ELEMENT_GPG_FINGERPRINT="12D4CD600C2240A9F4A82071D7B0B66941D01538"
+ELEMENT_PACKAGES="$STATE_DIR/element-desktop-$TIMESTAMP.Packages"
+ELEMENT_INRELEASE="$STATE_DIR/element-desktop-$TIMESTAMP.InRelease"
+ELEMENT_GPG_KEY="$STATE_DIR/element-desktop-signing-key-$TIMESTAMP.gpg"
+ELEMENT_GPG_HOME="$STATE_DIR/element-desktop-gnupg-$TIMESTAMP"
+ELEMENT_DEB="$STATE_DIR/element-desktop-$TIMESTAMP.deb"
+ELEMENT_INSTALL_DIR="/opt/element-desktop"
+ELEMENT_DEB_URL=""
+ELEMENT_SHA256=""
 BRAVE_ORIGIN_NIGHTLY_RELEASES_API="https://api.github.com/repos/brave/brave-browser/releases?per_page=20"
 BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR="/opt/brave-origin-nightly"
 BRAVE_ORIGIN_NIGHTLY_DOWNLOAD="$STATE_DIR/brave-origin-nightly-$TIMESTAMP.zip"
@@ -99,7 +131,10 @@ SKIP_NEXTCLOUD=false
 SKIP_PROTON_DRIVE=false
 SKIP_PASS_CLI=false
 SKIP_PROTON_PASS=false
+SKIP_PROTON_BRIDGE=false
 SKIP_BETTERBIRD=false
+SKIP_ZOTERO=false
+SKIP_ELEMENT=false
 SKIP_BRAVE_ORIGIN_NIGHTLY=false
 SKIP_CURSOR=false
 SKIP_ORIGIN_CLI=false
@@ -165,7 +200,10 @@ Options:
   --skip-proton-drive  Skip the Proton Drive CLI download and install
   --skip-pass-cli  Skip the Proton Pass CLI download and install
   --skip-proton-pass  Skip the Proton Pass desktop Stable .deb extract and install
+  --skip-proton-bridge  Skip the Proton Mail Bridge amd64 .deb extract and install
   --skip-betterbird Skip the Betterbird tarball download and install
+  --skip-zotero    Skip the Zotero linux-x86_64 tarball download and install
+  --skip-element   Skip the Element Desktop amd64 .deb extract and install
   --skip-brave-origin-nightly  Skip the Brave Origin Nightly zip download and install
   --skip-cursor    Skip the Cursor nightly (dev) AppImage download and install
   --skip-origin-cli  Skip the Cursor Origin CLI tarball download and install
@@ -1145,6 +1183,251 @@ install_proton_pass() {
   run_step "install Proton Pass desktop" install_proton_pass_files
 }
 
+# Asset names include the version (protonmail-bridge_3.26.0-1_amd64.deb), so
+# there is no stable latest/download URL. Follow /releases/latest, or use gh.
+resolve_proton_bridge_deb_url() {
+  local effective=""
+  local tag=""
+  local assets=""
+  local rel=""
+
+  if command -v gh >/dev/null 2>&1; then
+    PROTON_BRIDGE_DOWNLOAD_URL="$(
+      gh api repos/ProtonMail/proton-bridge/releases/latest \
+        --jq '.assets[] | select(.name | test("^protonmail-bridge_[0-9.]+-[0-9]+_amd64\\.deb$")) | .browser_download_url' \
+        | head -1
+    )"
+  elif command -v curl >/dev/null 2>&1; then
+    effective="$(curl -fsSL -o /dev/null -w '%{url_effective}' "$PROTON_BRIDGE_LATEST_RELEASE_URL")"
+    tag="${effective##*/}"
+    assets="$STATE_DIR/proton-bridge-assets-$TIMESTAMP.html"
+    download_url_to_file "$assets" "https://github.com/ProtonMail/proton-bridge/releases/expanded_assets/${tag}"
+    PROTON_BRIDGE_DOWNLOAD_URL="$(
+      grep -oE 'https://github.com/ProtonMail/proton-bridge/releases/download/[^"]+/protonmail-bridge_[0-9.]+-[0-9]+_amd64\.deb' "$assets" \
+        | head -1
+    )"
+    if [ -z "$PROTON_BRIDGE_DOWNLOAD_URL" ]; then
+      rel="$(
+        grep -oE '/ProtonMail/proton-bridge/releases/download/[^"]+/protonmail-bridge_[0-9.]+-[0-9]+_amd64\.deb' "$assets" \
+          | head -1
+      )"
+      if [ -n "$rel" ]; then
+        PROTON_BRIDGE_DOWNLOAD_URL="https://github.com${rel}"
+      fi
+    fi
+    rm -f "$assets"
+  else
+    log "Missing required command: gh or curl"
+    return 127
+  fi
+
+  case "$PROTON_BRIDGE_DOWNLOAD_URL" in
+    https://github.com/ProtonMail/proton-bridge/releases/download/*/protonmail-bridge_*_amd64.deb) ;;
+    *)
+      log "Could not resolve a Proton Mail Bridge amd64 .deb URL from $PROTON_BRIDGE_LATEST_RELEASE_URL"
+      return 1
+      ;;
+  esac
+
+  log "Proton Mail Bridge .deb: $PROTON_BRIDGE_DOWNLOAD_URL"
+  return 0
+}
+
+download_proton_bridge_files() {
+  download_url_to_file "$PROTON_BRIDGE_DEB" "$PROTON_BRIDGE_DOWNLOAD_URL"
+  download_url_to_file "$PROTON_BRIDGE_SIG" "${PROTON_BRIDGE_DOWNLOAD_URL}.sig"
+  download_url_to_file "$PROTON_BRIDGE_GPG_KEY" "$PROTON_BRIDGE_GPG_KEY_URL"
+}
+
+verify_proton_bridge_signature() {
+  local imported_fingerprint=""
+  local status=""
+
+  rm -rf "$PROTON_BRIDGE_GPG_HOME"
+  mkdir -m 700 -p "$PROTON_BRIDGE_GPG_HOME"
+
+  status="$(
+    export GNUPGHOME="$PROTON_BRIDGE_GPG_HOME"
+    gpg --batch --import "$PROTON_BRIDGE_GPG_KEY" >/dev/null
+    gpg --batch --with-colons --fingerprint
+  )" || return 1
+
+  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
+  if [ "$imported_fingerprint" != "$PROTON_BRIDGE_GPG_FINGERPRINT" ]; then
+    log "Proton Mail Bridge signing key fingerprint mismatch (expected $PROTON_BRIDGE_GPG_FINGERPRINT, got $imported_fingerprint)"
+    return 1
+  fi
+
+  status="$(
+    export GNUPGHOME="$PROTON_BRIDGE_GPG_HOME"
+    gpg --batch --status-fd 1 --verify "$PROTON_BRIDGE_SIG" "$PROTON_BRIDGE_DEB" 2>/dev/null
+  )" || true
+
+  if ! printf '%s\n' "$status" | grep -q "VALIDSIG $PROTON_BRIDGE_GPG_FINGERPRINT"; then
+    log "Proton Mail Bridge .deb GPG verification failed"
+    return 1
+  fi
+
+  log "Verified Proton Mail Bridge .deb GPG signature (VALIDSIG $PROTON_BRIDGE_GPG_FINGERPRINT)"
+  return 0
+}
+
+install_proton_bridge_files() {
+  local owner="$USER"
+  local group
+  local work="$STATE_DIR/proton-bridge-extract-$TIMESTAMP"
+  local data=""
+  local binary=""
+  local appdir=""
+  local icon=""
+
+  group="$(id -gn "$owner")"
+
+  rm -rf "$work"
+  mkdir -p "$work"
+  bsdtar -C "$work" -xf "$PROTON_BRIDGE_DEB"
+  data="$(find "$work" -maxdepth 1 -name 'data.tar.*' | head -1)"
+  if [ -z "$data" ]; then
+    log "Proton Mail Bridge .deb has no data.tar payload"
+    return 1
+  fi
+  bsdtar -C "$work" -xf "$data"
+
+  if [ -x "$work/usr/lib/protonmail/bridge/proton-bridge" ]; then
+    appdir="$work/usr/lib/protonmail/bridge"
+  else
+    binary="$(find "$work" -type f -name proton-bridge | head -1)"
+    if [ -n "$binary" ]; then
+      appdir="$(dirname "$binary")"
+    fi
+  fi
+
+  if [ -z "$appdir" ] || [ ! -x "$appdir/proton-bridge" ]; then
+    log "Proton Mail Bridge .deb does not contain a proton-bridge binary"
+    return 1
+  fi
+
+  sudo mkdir -p "$PROTON_BRIDGE_INSTALL_DIR"
+  sudo cp -a "$appdir"/. "$PROTON_BRIDGE_INSTALL_DIR"/
+  sudo chown -R "$owner:$group" "$PROTON_BRIDGE_INSTALL_DIR"
+  sudo chmod u+rwX "$PROTON_BRIDGE_INSTALL_DIR"
+  sudo chmod 755 "$PROTON_BRIDGE_INSTALL_DIR/proton-bridge"
+  sudo ln -sfn "$PROTON_BRIDGE_INSTALL_DIR/proton-bridge" /usr/local/bin/protonmail-bridge
+
+  sudo tee /usr/share/applications/protonmail-bridge.desktop >/dev/null <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.1
+Name=Proton Mail Bridge
+GenericName=Proton Mail Bridge for Linux
+Comment=Proton Mail Bridge encrypts and decrypts messages for a local mail client
+Exec=$PROTON_BRIDGE_INSTALL_DIR/proton-bridge
+Icon=protonmail-bridge
+Terminal=false
+Categories=Office;Email;Network;
+StartupWMClass=Proton Mail Bridge
+EOF
+  sudo chmod 644 /usr/share/applications/protonmail-bridge.desktop
+
+  icon="$(find "$work" -type f \( -name 'protonmail-bridge.svg' -o -name 'protonmail-bridge.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    case "$icon" in
+      *.svg)
+        sudo install -D -m 644 "$icon" /usr/share/icons/hicolor/scalable/apps/protonmail-bridge.svg
+        ;;
+      *)
+        sudo install -D -m 644 "$icon" /usr/share/pixmaps/protonmail-bridge.png
+        ;;
+    esac
+  fi
+
+  rm -rf "$work" "$PROTON_BRIDGE_DEB" "$PROTON_BRIDGE_SIG" "$PROTON_BRIDGE_GPG_KEY" "$PROTON_BRIDGE_GPG_HOME"
+}
+
+install_proton_bridge() {
+  local file_size=0
+
+  if [ "$SKIP_PROTON_BRIDGE" = true ]; then
+    log "Skipping Proton Mail Bridge installation"
+    record_status "SKIPPED" "Proton Mail Bridge"
+    return 0
+  fi
+
+  install_package_group pacman "Proton Mail Bridge runtime packages" PROTON_BRIDGE_RUNTIME_PACKAGES
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
+    FAILURES+=("resolve Proton Mail Bridge .deb (missing required command: curl or gh)")
+    record_status "FAIL" "resolve Proton Mail Bridge .deb"
+    log "Skipping Proton Mail Bridge install because curl and gh are not installed"
+    return 0
+  fi
+
+  if ! command -v gpg >/dev/null 2>&1; then
+    FAILURES+=("verify Proton Mail Bridge signature (missing required command: gpg)")
+    record_status "FAIL" "verify Proton Mail Bridge signature"
+    log "Skipping Proton Mail Bridge install because gpg is not installed"
+    return 0
+  fi
+
+  if ! command -v bsdtar >/dev/null 2>&1; then
+    FAILURES+=("extract Proton Mail Bridge .deb (missing required command: bsdtar)")
+    record_status "FAIL" "extract Proton Mail Bridge .deb"
+    log "Skipping Proton Mail Bridge install because bsdtar is not installed"
+    return 0
+  fi
+
+  if ! resolve_proton_bridge_deb_url; then
+    FAILURES+=("resolve Proton Mail Bridge amd64 .deb URL")
+    record_status "FAIL" "resolve Proton Mail Bridge amd64 .deb URL"
+    return 0
+  fi
+
+  run_step "download Proton Mail Bridge .deb" download_proton_bridge_files
+
+  if [ ! -e "$PROTON_BRIDGE_DEB" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$PROTON_BRIDGE_DEB" ]; then
+    FAILURES+=("download Proton Mail Bridge .deb (empty file)")
+    record_status "FAIL" "download Proton Mail Bridge .deb"
+    log "Downloaded Proton Mail Bridge file is empty: $PROTON_BRIDGE_DEB"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$PROTON_BRIDGE_DEB")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download Proton Mail Bridge .deb (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download Proton Mail Bridge .deb"
+    log "Downloaded Proton Mail Bridge file looks too small to be a .deb: $PROTON_BRIDGE_DEB ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 7 "$PROTON_BRIDGE_DEB")" != '!<arch>' ]; then
+    FAILURES+=("download Proton Mail Bridge .deb (not an ar archive)")
+    record_status "FAIL" "download Proton Mail Bridge .deb"
+    log "Downloaded Proton Mail Bridge file is not a .deb ar archive: $PROTON_BRIDGE_DEB"
+    return 0
+  fi
+
+  if [ ! -s "$PROTON_BRIDGE_SIG" ]; then
+    FAILURES+=("download Proton Mail Bridge signature (empty file)")
+    record_status "FAIL" "download Proton Mail Bridge signature"
+    log "Downloaded Proton Mail Bridge signature is empty: $PROTON_BRIDGE_SIG"
+    return 0
+  fi
+
+  if ! verify_proton_bridge_signature; then
+    FAILURES+=("verify Proton Mail Bridge GPG signature")
+    record_status "FAIL" "verify Proton Mail Bridge GPG signature"
+    return 0
+  fi
+
+  log "Verified Proton Mail Bridge .deb ($file_size bytes); extracting to $PROTON_BRIDGE_INSTALL_DIR"
+
+  run_step "install Proton Mail Bridge" install_proton_bridge_files
+}
+
 resolve_betterbird_download() {
   local filename=""
   local series=""
@@ -1310,6 +1593,396 @@ install_betterbird() {
   log "Verified Betterbird SHA-256; extracting to $BETTERBIRD_INSTALL_DIR"
 
   run_step "install Betterbird" install_betterbird_files
+}
+
+download_zotero_tarball() {
+  download_url_to_file "$ZOTERO_DOWNLOAD" "$ZOTERO_DOWNLOAD_URL"
+}
+
+install_zotero_files() {
+  local owner="$USER"
+  local group
+  local work="$STATE_DIR/zotero-extract-$TIMESTAMP"
+  local appdir=""
+  local icon=""
+
+  group="$(id -gn "$owner")"
+
+  rm -rf "$work"
+  mkdir -p "$work"
+  bsdtar -C "$work" -xf "$ZOTERO_DOWNLOAD"
+
+  if [ -x "$work/Zotero_linux-x86_64/zotero" ]; then
+    appdir="$work/Zotero_linux-x86_64"
+  else
+    appdir="$(find "$work" -type f -name zotero -printf '%h\n' | head -1)"
+  fi
+
+  if [ -z "$appdir" ] || [ ! -x "$appdir/zotero" ] || [ ! -x "$appdir/zotero-bin" ]; then
+    log "Zotero tarball does not contain zotero and zotero-bin"
+    return 1
+  fi
+
+  if [ "$(head -c 4 "$appdir/zotero-bin")" != $'\x7fELF' ]; then
+    log "Zotero zotero-bin is not an ELF binary"
+    return 1
+  fi
+
+  sudo mkdir -p "$ZOTERO_INSTALL_DIR"
+  sudo cp -a "$appdir"/. "$ZOTERO_INSTALL_DIR"/
+  sudo chown -R "$owner:$group" "$ZOTERO_INSTALL_DIR"
+  sudo chmod u+rwX "$ZOTERO_INSTALL_DIR"
+  sudo chmod 755 "$ZOTERO_INSTALL_DIR/zotero" "$ZOTERO_INSTALL_DIR/zotero-bin"
+  sudo ln -sfn "$ZOTERO_INSTALL_DIR/zotero" /usr/local/bin/zotero
+
+  sudo tee /usr/share/applications/zotero.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=Zotero
+Comment=Collect, organize, cite, and share research
+Exec=$ZOTERO_INSTALL_DIR/zotero %U
+Icon=zotero
+Terminal=false
+Type=Application
+Categories=Office;Education;
+MimeType=text/plain;x-scheme-handler/zotero;application/x-research-info-systems;text/x-research-info-systems;text/ris;application/x-endnote-refer;application/x-inst-for-Scientific-info;application/mods+xml;application/rdf+xml;application/x-bibtex;text/x-bibtex;application/marc;application/vnd.citationstyles.style+xml
+StartupWMClass=Zotero
+StartupNotify=true
+X-GNOME-SingleWindow=true
+EOF
+  sudo chmod 644 /usr/share/applications/zotero.desktop
+
+  icon="$(find "$appdir/icons" -type f \( -name 'icon128.png' -o -name 'icon64.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/zotero.png
+  fi
+
+  rm -rf "$work" "$ZOTERO_DOWNLOAD"
+}
+
+install_zotero() {
+  local file_size=0
+
+  if [ "$SKIP_ZOTERO" = true ]; then
+    log "Skipping Zotero installation"
+    record_status "SKIPPED" "Zotero"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    FAILURES+=("download Zotero tarball (missing required command: curl or wget)")
+    record_status "FAIL" "download Zotero tarball"
+    log "Skipping Zotero install because neither curl nor wget is installed"
+    return 0
+  fi
+
+  if ! command -v bsdtar >/dev/null 2>&1; then
+    FAILURES+=("extract Zotero tarball (missing required command: bsdtar)")
+    record_status "FAIL" "extract Zotero tarball"
+    log "Skipping Zotero install because bsdtar is not installed"
+    return 0
+  fi
+
+  run_step "download Zotero tarball" download_zotero_tarball
+
+  if [ ! -e "$ZOTERO_DOWNLOAD" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$ZOTERO_DOWNLOAD" ]; then
+    FAILURES+=("download Zotero tarball (empty file)")
+    record_status "FAIL" "download Zotero tarball"
+    log "Downloaded Zotero file is empty: $ZOTERO_DOWNLOAD"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$ZOTERO_DOWNLOAD")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download Zotero tarball (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download Zotero tarball"
+    log "Downloaded Zotero file looks too small: $ZOTERO_DOWNLOAD ($file_size bytes)"
+    return 0
+  fi
+
+  # XZ magic is fd 37 7a 58 5a 00; skip the trailing NUL so command substitution
+  # does not strip it and break the comparison.
+  if [ "$(head -c 5 "$ZOTERO_DOWNLOAD")" != $'\xfd7zXZ' ]; then
+    FAILURES+=("download Zotero tarball (not an xz archive)")
+    record_status "FAIL" "download Zotero tarball"
+    log "Downloaded Zotero file is not an xz archive: $ZOTERO_DOWNLOAD"
+    return 0
+  fi
+
+  log "Verified Zotero tarball ($file_size bytes); extracting to $ZOTERO_INSTALL_DIR"
+
+  run_step "install Zotero" install_zotero_files
+}
+
+download_element_metadata() {
+  download_url_to_file "$ELEMENT_PACKAGES" "$ELEMENT_PACKAGES_URL"
+  download_url_to_file "$ELEMENT_INRELEASE" "$ELEMENT_INRELEASE_URL"
+  download_url_to_file "$ELEMENT_GPG_KEY" "$ELEMENT_GPG_KEY_URL"
+}
+
+verify_element_packages_signature() {
+  local imported_fingerprint=""
+  local status=""
+  local expected_hash=""
+  local actual_hash=""
+
+  rm -rf "$ELEMENT_GPG_HOME"
+  mkdir -m 700 -p "$ELEMENT_GPG_HOME"
+
+  status="$(
+    export GNUPGHOME="$ELEMENT_GPG_HOME"
+    gpg --batch --import "$ELEMENT_GPG_KEY" >/dev/null
+    gpg --batch --with-colons --fingerprint
+  )" || return 1
+
+  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
+  if [ "$imported_fingerprint" != "$ELEMENT_GPG_FINGERPRINT" ]; then
+    log "Element signing key fingerprint mismatch (expected $ELEMENT_GPG_FINGERPRINT, got $imported_fingerprint)"
+    return 1
+  fi
+
+  status="$(
+    export GNUPGHOME="$ELEMENT_GPG_HOME"
+    gpg --batch --status-fd 1 --verify "$ELEMENT_INRELEASE" 2>/dev/null
+  )" || true
+
+  # InRelease is signed with the signing subkey. VALIDSIG's first fingerprint is
+  # that subkey; the primary fingerprint is the last field.
+  if ! printf '%s\n' "$status" | awk -v fpr="$ELEMENT_GPG_FINGERPRINT" '
+    $2 == "VALIDSIG" && $NF == fpr { found = 1 }
+    END { exit !found }
+  '; then
+    log "Element InRelease GPG verification failed"
+    return 1
+  fi
+
+  expected_hash="$(
+    awk '
+      $0 == "SHA256:" { in_sha = 1; next }
+      in_sha && /^[A-Z]/ { in_sha = 0 }
+      in_sha && $3 == "main/binary-amd64/Packages" { print $1; exit }
+    ' "$ELEMENT_INRELEASE"
+  )"
+  actual_hash="$(sha256sum "$ELEMENT_PACKAGES" | awk '{ print $1 }')"
+  if [ -z "$expected_hash" ] || [ "$actual_hash" != "$expected_hash" ]; then
+    log "Element Packages SHA-256 mismatch (expected $expected_hash, got $actual_hash)"
+    return 1
+  fi
+
+  log "Verified Element Packages GPG signature and SHA-256"
+  return 0
+}
+
+parse_element_deb() {
+  local parsed=""
+
+  parsed="$(
+    awk '
+      $0 == "Package: element-desktop" { inpkg = 1; file = ""; hash = ""; next }
+      inpkg && /^Package:/ { inpkg = 0 }
+      inpkg && /^Filename:/ { file = $2 }
+      inpkg && /^SHA256:/ { hash = $2 }
+      END {
+        if (file != "" && hash != "") {
+          print file "\t" hash
+        }
+      }
+    ' "$ELEMENT_PACKAGES"
+  )"
+
+  ELEMENT_DEB_URL="https://packages.element.io/debian/${parsed%%$'\t'*}"
+  ELEMENT_SHA256="${parsed#*$'\t'}"
+
+  case "$ELEMENT_DEB_URL" in
+    https://packages.element.io/debian/pool/main/e/element-desktop/element-desktop_*_amd64.deb) ;;
+    *)
+      log "Could not parse an Element Desktop amd64 .deb URL from $ELEMENT_PACKAGES_URL"
+      return 1
+      ;;
+  esac
+
+  if [ -z "$ELEMENT_SHA256" ] || [ "$ELEMENT_DEB_URL" = "$ELEMENT_SHA256" ]; then
+    log "Could not parse the Element Desktop SHA-256 from $ELEMENT_PACKAGES_URL"
+    return 1
+  fi
+
+  log "Element Desktop: $ELEMENT_DEB_URL"
+  return 0
+}
+
+download_element_deb() {
+  download_url_to_file "$ELEMENT_DEB" "$ELEMENT_DEB_URL"
+}
+
+install_element_files() {
+  local owner="$USER"
+  local group
+  local work="$STATE_DIR/element-desktop-extract-$TIMESTAMP"
+  local data=""
+  local binary=""
+  local appdir=""
+  local icon=""
+  local candidate=""
+
+  group="$(id -gn "$owner")"
+
+  rm -rf "$work"
+  mkdir -p "$work"
+  bsdtar -C "$work" -xf "$ELEMENT_DEB"
+  data="$(find "$work" -maxdepth 1 -name 'data.tar.*' | head -1)"
+  if [ -z "$data" ]; then
+    log "Element Desktop .deb has no data.tar payload"
+    return 1
+  fi
+  bsdtar -C "$work" -xf "$data"
+
+  if [ -x "$work/opt/Element/element-desktop" ]; then
+    appdir="$work/opt/Element"
+  else
+    while IFS= read -r candidate; do
+      if [ "$(head -c 4 "$candidate")" = $'\x7fELF' ]; then
+        binary="$candidate"
+        break
+      fi
+    done < <(find "$work" -type f -name element-desktop)
+    if [ -n "$binary" ]; then
+      appdir="$(dirname "$binary")"
+    fi
+  fi
+
+  if [ -z "$appdir" ] || [ ! -x "$appdir/element-desktop" ]; then
+    log "Element Desktop .deb does not contain an element-desktop binary"
+    return 1
+  fi
+
+  sudo mkdir -p "$ELEMENT_INSTALL_DIR"
+  sudo cp -a "$appdir"/. "$ELEMENT_INSTALL_DIR"/
+  sudo chown -R "$owner:$group" "$ELEMENT_INSTALL_DIR"
+  sudo chmod u+rwX "$ELEMENT_INSTALL_DIR"
+  sudo chmod 755 "$ELEMENT_INSTALL_DIR/element-desktop"
+  # Hyprland is not a desktop Electron auto-detects; pin gnome-libsecret
+  # (same as chromium-flags.conf on this machine).
+  sudo tee /usr/local/bin/element-desktop >/dev/null <<EOF
+#!/bin/bash
+exec $ELEMENT_INSTALL_DIR/element-desktop --password-store=gnome-libsecret --no-sandbox "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/element-desktop
+
+  sudo tee /usr/share/applications/element-desktop.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=Element
+Comment=Secure Matrix messenger
+GenericName=Matrix Client
+Exec=$ELEMENT_INSTALL_DIR/element-desktop --password-store=gnome-libsecret --no-sandbox %U
+Icon=element-desktop
+Terminal=false
+Type=Application
+Categories=Network;InstantMessaging;
+MimeType=x-scheme-handler/element;x-scheme-handler/io.element.desktop;
+StartupWMClass=Element
+StartupNotify=true
+EOF
+  sudo chmod 644 /usr/share/applications/element-desktop.desktop
+
+  icon="$(find "$work" -type f \( -name 'element.png' -o -name 'element-desktop.png' -o -name 'io.element.desktop.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/element-desktop.png
+  fi
+
+  rm -rf "$work" "$ELEMENT_DEB" "$ELEMENT_PACKAGES" "$ELEMENT_INRELEASE" "$ELEMENT_GPG_KEY" "$ELEMENT_GPG_HOME"
+}
+
+install_element() {
+  local file_size=0
+  local actual_hash=""
+
+  if [ "$SKIP_ELEMENT" = true ]; then
+    log "Skipping Element Desktop installation"
+    record_status "SKIPPED" "Element Desktop"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    FAILURES+=("download Element metadata (missing required command: curl or wget)")
+    record_status "FAIL" "download Element metadata"
+    log "Skipping Element Desktop install because neither curl nor wget is installed"
+    return 0
+  fi
+
+  if ! command -v gpg >/dev/null 2>&1; then
+    FAILURES+=("verify Element Packages signature (missing required command: gpg)")
+    record_status "FAIL" "verify Element Packages signature"
+    log "Skipping Element Desktop install because gpg is not installed"
+    return 0
+  fi
+
+  if ! command -v bsdtar >/dev/null 2>&1; then
+    FAILURES+=("extract Element Desktop .deb (missing required command: bsdtar)")
+    record_status "FAIL" "extract Element Desktop .deb"
+    log "Skipping Element Desktop install because bsdtar is not installed"
+    return 0
+  fi
+
+  run_step "download Element metadata" download_element_metadata
+
+  if [ ! -s "$ELEMENT_PACKAGES" ] || [ ! -s "$ELEMENT_INRELEASE" ]; then
+    return 0
+  fi
+
+  if ! verify_element_packages_signature; then
+    FAILURES+=("verify Element Packages GPG signature")
+    record_status "FAIL" "verify Element Packages GPG signature"
+    return 0
+  fi
+
+  if ! parse_element_deb; then
+    FAILURES+=("parse Element Desktop amd64 .deb URL")
+    record_status "FAIL" "parse Element Desktop amd64 .deb URL"
+    return 0
+  fi
+
+  run_step "download Element Desktop .deb" download_element_deb
+
+  if [ ! -e "$ELEMENT_DEB" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$ELEMENT_DEB" ]; then
+    FAILURES+=("download Element Desktop .deb (empty file)")
+    record_status "FAIL" "download Element Desktop .deb"
+    log "Downloaded Element Desktop file is empty: $ELEMENT_DEB"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$ELEMENT_DEB")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download Element Desktop .deb (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download Element Desktop .deb"
+    log "Downloaded Element Desktop file looks too small to be a .deb: $ELEMENT_DEB ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 7 "$ELEMENT_DEB")" != '!<arch>' ]; then
+    FAILURES+=("download Element Desktop .deb (not an ar archive)")
+    record_status "FAIL" "download Element Desktop .deb"
+    log "Downloaded Element Desktop file is not a .deb ar archive: $ELEMENT_DEB"
+    return 0
+  fi
+
+  actual_hash="$(sha256sum "$ELEMENT_DEB" | awk '{ print $1 }')"
+  if [ "$actual_hash" != "$ELEMENT_SHA256" ]; then
+    FAILURES+=("verify Element Desktop checksum")
+    record_status "FAIL" "verify Element Desktop checksum"
+    log "Element Desktop SHA-256 mismatch (expected $ELEMENT_SHA256, got $actual_hash)"
+    return 0
+  fi
+
+  log "Verified Element Desktop .deb SHA-256; extracting to $ELEMENT_INSTALL_DIR"
+
+  run_step "install Element Desktop" install_element_files
 }
 
 resolve_brave_origin_nightly_url() {
@@ -1591,12 +2264,18 @@ install_cursor_files() {
   # block self-update, so the installing user owns /opt/cursor.
   sudo chown -R "$owner:$group" "$CURSOR_INSTALL_DIR"
   sudo chmod u+rwX "$CURSOR_INSTALL_DIR" "$CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME"
-  sudo ln -sfn "$CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME" /usr/local/bin/cursor
+  # Hyprland is not a desktop Electron auto-detects; pin gnome-libsecret
+  # (same as chromium-flags.conf and Element on this machine).
+  sudo tee /usr/local/bin/cursor >/dev/null <<EOF
+#!/bin/bash
+exec $CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME --password-store=gnome-libsecret --no-sandbox "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/cursor
   sudo tee /usr/share/applications/cursor.desktop >/dev/null <<EOF
 [Desktop Entry]
 Name=Cursor
 Comment=The AI Code Editor (nightly)
-Exec=$CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME --no-sandbox %U
+Exec=$CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME --password-store=gnome-libsecret --no-sandbox %U
 Icon=cursor
 Terminal=false
 Type=Application
@@ -1885,8 +2564,17 @@ main() {
       --skip-proton-pass)
         SKIP_PROTON_PASS=true
         ;;
+      --skip-proton-bridge)
+        SKIP_PROTON_BRIDGE=true
+        ;;
       --skip-betterbird)
         SKIP_BETTERBIRD=true
+        ;;
+      --skip-zotero)
+        SKIP_ZOTERO=true
+        ;;
+      --skip-element)
+        SKIP_ELEMENT=true
         ;;
       --skip-brave-origin-nightly)
         SKIP_BRAVE_ORIGIN_NIGHTLY=true
@@ -1941,7 +2629,10 @@ main() {
   install_proton_drive
   install_pass_cli
   install_proton_pass
+  install_proton_bridge
   install_betterbird
+  install_zotero
+  install_element
   install_brave_origin_nightly
   install_cursor
   install_origin_cli
