@@ -2433,7 +2433,7 @@ EOF
     sudo systemctl daemon-reload
     sudo systemctl enable mullvad-daemon.service
     sudo systemctl enable mullvad-early-boot-blocking.service
-    sudo systemctl start mullvad-daemon.service || log "Failed to start mullvad-daemon.service"
+    sudo systemctl restart mullvad-daemon.service || log "Failed to restart mullvad-daemon.service"
   fi
 
   rm -rf "$work" "$MULLVAD_DEB" "$MULLVAD_SIG" "$MULLVAD_GPG_KEY" "$MULLVAD_GPG_HOME"
