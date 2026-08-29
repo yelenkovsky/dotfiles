@@ -90,6 +90,39 @@ ELEMENT_DEB="$STATE_DIR/element-desktop-$TIMESTAMP.deb"
 ELEMENT_INSTALL_DIR="/opt/element-desktop"
 ELEMENT_DEB_URL=""
 ELEMENT_SHA256=""
+# Community Edition linux-x86_64 tarball via the unversioned /files/latest URL.
+DBEAVER_DOWNLOAD_URL="https://dbeaver.io/files/dbeaver-ce-latest-linux-x86_64.tar.gz"
+DBEAVER_SHA256_URL="https://dbeaver.io/files/checksum/dbeaver-ce-latest-linux-x86_64.tar.gz.sha256"
+DBEAVER_INSTALL_DIR="/opt/dbeaver"
+DBEAVER_DOWNLOAD="$STATE_DIR/dbeaver-$TIMESTAMP.tar.gz"
+DBEAVER_SHA256_FILE="$STATE_DIR/dbeaver-$TIMESTAMP.sha256"
+APPIMAGELAUNCHER_RELEASES_API="https://api.github.com/repos/TheAssassin/AppImageLauncher/releases/latest"
+APPIMAGELAUNCHER_INSTALL_DIR="/opt/appimagelauncher"
+APPIMAGELAUNCHER_APPIMAGE_NAME="AppImageLauncher.AppImage"
+APPIMAGELAUNCHER_DOWNLOAD="$STATE_DIR/appimagelauncher-$TIMESTAMP.AppImage"
+APPIMAGELAUNCHER_DOWNLOAD_URL=""
+APPIMAGELAUNCHER_SHA256=""
+# Beta linux amd64 .deb (not arm64, not rpm). Website latest-beta returns HTML
+# to non-wget clients; resolve the newest desktop *-beta* GitHub release.
+MULLVAD_RELEASES_API="https://api.github.com/repos/mullvad/mullvadvpn-app/releases?per_page=30"
+MULLVAD_GPG_KEY_URL="https://mullvad.net/media/mullvad-code-signing.asc"
+# Mullvad (code signing) <admin@mullvad.net>
+MULLVAD_GPG_FINGERPRINT="A1198702FC3E0A09A9AE5B75D5A1D4F266DE8DDF"
+MULLVAD_INSTALL_DIR="/opt/Mullvad VPN"
+MULLVAD_DEB="$STATE_DIR/mullvad-vpn-$TIMESTAMP.deb"
+MULLVAD_SIG="$STATE_DIR/mullvad-vpn-$TIMESTAMP.deb.asc"
+MULLVAD_GPG_KEY="$STATE_DIR/mullvad-signing-key-$TIMESTAMP.asc"
+MULLVAD_GPG_HOME="$STATE_DIR/mullvad-gnupg-$TIMESTAMP"
+MULLVAD_DOWNLOAD_URL=""
+MULLVAD_SHA256=""
+MULLVAD_RUNTIME_PACKAGES=(
+  dbus
+  iputils
+  libayatana-appindicator
+  libnotify
+  libxss
+  nss
+)
 BRAVE_ORIGIN_NIGHTLY_RELEASES_API="https://api.github.com/repos/brave/brave-browser/releases?per_page=20"
 BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR="/opt/brave-origin-nightly"
 BRAVE_ORIGIN_NIGHTLY_DOWNLOAD="$STATE_DIR/brave-origin-nightly-$TIMESTAMP.zip"
@@ -121,6 +154,47 @@ ORIGIN_CLI_EXTRACT="$STATE_DIR/origin-cli-extract-$TIMESTAMP"
 ORIGIN_CLI_BIN="/usr/local/bin/origin"
 ORIGIN_CLI_URL=""
 ORIGIN_CLI_SHA256=""
+# Official amd64 spotify-client from the vendor Debian repo (not snap, not i386).
+SPOTIFY_PACKAGES_URL="https://repository.spotify.com/dists/stable/non-free/binary-amd64/Packages"
+SPOTIFY_INRELEASE_URL="https://repository.spotify.com/dists/stable/InRelease"
+SPOTIFY_GPG_KEY_URL="https://download.spotify.com/debian/pubkey_5384CE82BA52C83A.asc"
+# Spotify Public Repository Signing Key <tux@spotify.com>; pin so a swapped key cannot pass.
+SPOTIFY_GPG_FINGERPRINT="E1096BCBFF6D418796DE78515384CE82BA52C83A"
+SPOTIFY_PACKAGES="$STATE_DIR/spotify-$TIMESTAMP.Packages"
+SPOTIFY_INRELEASE="$STATE_DIR/spotify-$TIMESTAMP.InRelease"
+SPOTIFY_GPG_KEY="$STATE_DIR/spotify-signing-key-$TIMESTAMP.asc"
+SPOTIFY_GPG_HOME="$STATE_DIR/spotify-gnupg-$TIMESTAMP"
+SPOTIFY_DEB="$STATE_DIR/spotify-$TIMESTAMP.deb"
+SPOTIFY_INSTALL_DIR="/opt/spotify"
+SPOTIFY_DEB_URL=""
+SPOTIFY_SHA256=""
+SPOTIFY_RUNTIME_PACKAGES=(
+  alsa-lib
+  gtk3
+  libayatana-appindicator
+  libsm
+  libxss
+  libxtst
+  nss
+  xdg-utils
+)
+POMOTROID_RELEASES_API="https://api.github.com/repos/Splode/pomotroid/releases/latest"
+POMOTROID_INSTALL_DIR="/opt/pomotroid"
+POMOTROID_APPIMAGE_NAME="Pomotroid.AppImage"
+POMOTROID_DOWNLOAD="$STATE_DIR/pomotroid-$TIMESTAMP.AppImage"
+POMOTROID_ICON_DIR="$STATE_DIR/pomotroid-icon-$TIMESTAMP"
+POMOTROID_DOWNLOAD_URL=""
+POMOTROID_SHA256=""
+DEBTAP_RELEASES_API="https://api.github.com/repos/helixarch/debtap/releases/latest"
+DEBTAP_TARBALL="$STATE_DIR/debtap-$TIMESTAMP.tar.gz"
+DEBTAP_EXTRACT="$STATE_DIR/debtap-extract-$TIMESTAMP"
+DEBTAP_BIN="/usr/local/bin/debtap"
+DEBTAP_TARBALL_URL=""
+DEBTAP_RUNTIME_PACKAGES=(
+  binutils
+  fakeroot
+  file
+)
 
 DRY_RUN=false
 STOP_ON_ERROR=false
@@ -135,9 +209,15 @@ SKIP_PROTON_BRIDGE=false
 SKIP_BETTERBIRD=false
 SKIP_ZOTERO=false
 SKIP_ELEMENT=false
+SKIP_DBEAVER=false
+SKIP_APPIMAGELAUNCHER=false
+SKIP_MULLVAD=false
 SKIP_BRAVE_ORIGIN_NIGHTLY=false
 SKIP_CURSOR=false
 SKIP_ORIGIN_CLI=false
+SKIP_SPOTIFY=false
+SKIP_POMOTROID=false
+SKIP_DEBTAP=false
 ASSUME_YES=false
 
 PACMAN_CORE_PACKAGES=(
@@ -152,6 +232,16 @@ PACMAN_DESKTOP_PACKAGES=(
   file-roller
   flameshot
   gparted
+  # kdeconnect
+  # kleopatra
+  kompare
+  krename
+  krusader
+  qbittorrent
+  remmina
+  unrar
+  vlc
+  vlc-plugins-all
 )
 
 PACMAN_UTIL_PACKAGES=(
@@ -176,8 +266,19 @@ PACMAN_FONT_PACKAGES=(
   ttf-nerd-fonts-symbols-mono
 )
 
+PACMAN_GAMING_PACKAGES=(
+  steam
+  gamemode
+  lib32-gamemode
+  mangohud
+  lib32-mangohud
+)
+
 AUR_PACKAGES=(
-  appimagelauncher
+  masterpdfeditor-free
+  mangojuice
+  proton-cachyos-slr
+  optimus-manager-git
   ttf-ms-fonts
   ttf-vista-fonts
 )
@@ -204,9 +305,15 @@ Options:
   --skip-betterbird Skip the Betterbird tarball download and install
   --skip-zotero    Skip the Zotero linux-x86_64 tarball download and install
   --skip-element   Skip the Element Desktop amd64 .deb extract and install
+  --skip-dbeaver   Skip the DBeaver CE linux-x86_64 tarball download and install
+  --skip-appimagelauncher  Skip the AppImageLauncher x86_64 AppImage download and install
+  --skip-mullvad   Skip the Mullvad VPN beta amd64 .deb extract and install
   --skip-brave-origin-nightly  Skip the Brave Origin Nightly zip download and install
   --skip-cursor    Skip the Cursor nightly (dev) AppImage download and install
   --skip-origin-cli  Skip the Cursor Origin CLI tarball download and install
+  --skip-spotify   Skip the Spotify amd64 .deb extract and install
+  --skip-pomotroid Skip the Pomotroid amd64 AppImage download and install
+  --skip-debtap    Skip the debtap GitHub tarball download and install
   --yes            Pass --noconfirm to pacman/yay and --yes to OMF
   -h, --help       Show this help text
 
@@ -1985,6 +2092,598 @@ install_element() {
   run_step "install Element Desktop" install_element_files
 }
 
+download_dbeaver_files() {
+  download_url_to_file "$DBEAVER_DOWNLOAD" "$DBEAVER_DOWNLOAD_URL"
+  download_url_to_file "$DBEAVER_SHA256_FILE" "$DBEAVER_SHA256_URL"
+}
+
+install_dbeaver_files() {
+  local owner="$USER"
+  local group
+  local work="$STATE_DIR/dbeaver-extract-$TIMESTAMP"
+  local appdir=""
+  local icon=""
+
+  group="$(id -gn "$owner")"
+
+  rm -rf "$work"
+  mkdir -p "$work"
+  bsdtar -C "$work" -xf "$DBEAVER_DOWNLOAD"
+
+  if [ -x "$work/dbeaver/dbeaver" ]; then
+    appdir="$work/dbeaver"
+  else
+    appdir="$(find "$work" -type f -name dbeaver -printf '%h\n' | head -1)"
+  fi
+
+  if [ -z "$appdir" ] || [ ! -x "$appdir/dbeaver" ]; then
+    log "DBeaver tarball does not contain a dbeaver launcher"
+    return 1
+  fi
+
+  sudo mkdir -p "$DBEAVER_INSTALL_DIR"
+  sudo cp -a "$appdir"/. "$DBEAVER_INSTALL_DIR"/
+  sudo chown -R "$owner:$group" "$DBEAVER_INSTALL_DIR"
+  sudo chmod u+rwX "$DBEAVER_INSTALL_DIR"
+  sudo chmod 755 "$DBEAVER_INSTALL_DIR/dbeaver"
+  sudo ln -sfn "$DBEAVER_INSTALL_DIR/dbeaver" /usr/local/bin/dbeaver
+
+  sudo tee /usr/share/applications/dbeaver.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=DBeaver
+Comment=Universal database tool
+GenericName=Database Manager
+Exec=$DBEAVER_INSTALL_DIR/dbeaver
+Icon=dbeaver
+Terminal=false
+Type=Application
+Categories=Development;Database;
+StartupWMClass=DBeaver
+StartupNotify=true
+EOF
+  sudo chmod 644 /usr/share/applications/dbeaver.desktop
+
+  icon="$(find "$appdir" -type f \( -name 'dbeaver.png' -o -name 'dbeaver128.png' -o -name 'icon.xpm' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/dbeaver.png
+  fi
+
+  rm -rf "$work" "$DBEAVER_DOWNLOAD" "$DBEAVER_SHA256_FILE"
+}
+
+install_dbeaver() {
+  local file_size=0
+  local actual_hash=""
+  local expected_hash=""
+
+  if [ "$SKIP_DBEAVER" = true ]; then
+    log "Skipping DBeaver installation"
+    record_status "SKIPPED" "DBeaver"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    FAILURES+=("download DBeaver tarball (missing required command: curl or wget)")
+    record_status "FAIL" "download DBeaver tarball"
+    log "Skipping DBeaver install because neither curl nor wget is installed"
+    return 0
+  fi
+
+  if ! command -v bsdtar >/dev/null 2>&1; then
+    FAILURES+=("extract DBeaver tarball (missing required command: bsdtar)")
+    record_status "FAIL" "extract DBeaver tarball"
+    log "Skipping DBeaver install because bsdtar is not installed"
+    return 0
+  fi
+
+  run_step "download DBeaver tarball" download_dbeaver_files
+
+  if [ ! -e "$DBEAVER_DOWNLOAD" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$DBEAVER_DOWNLOAD" ]; then
+    FAILURES+=("download DBeaver tarball (empty file)")
+    record_status "FAIL" "download DBeaver tarball"
+    log "Downloaded DBeaver file is empty: $DBEAVER_DOWNLOAD"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$DBEAVER_DOWNLOAD")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download DBeaver tarball (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download DBeaver tarball"
+    log "Downloaded DBeaver file looks too small: $DBEAVER_DOWNLOAD ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 2 "$DBEAVER_DOWNLOAD")" != $'\x1f\x8b' ]; then
+    FAILURES+=("download DBeaver tarball (not a gzip archive)")
+    record_status "FAIL" "download DBeaver tarball"
+    log "Downloaded DBeaver file is not a gzip archive: $DBEAVER_DOWNLOAD"
+    return 0
+  fi
+
+  if [ ! -s "$DBEAVER_SHA256_FILE" ]; then
+    FAILURES+=("download DBeaver checksum (empty file)")
+    record_status "FAIL" "download DBeaver checksum"
+    log "Downloaded DBeaver checksum file is empty: $DBEAVER_SHA256_FILE"
+    return 0
+  fi
+
+  expected_hash="$(awk '{ print $1 }' "$DBEAVER_SHA256_FILE")"
+  actual_hash="$(sha256sum "$DBEAVER_DOWNLOAD" | awk '{ print $1 }')"
+  if [ -z "$expected_hash" ] || [ "$actual_hash" != "$expected_hash" ]; then
+    FAILURES+=("verify DBeaver checksum")
+    record_status "FAIL" "verify DBeaver checksum"
+    log "DBeaver SHA-256 mismatch (expected $expected_hash, got $actual_hash)"
+    return 0
+  fi
+
+  log "Verified DBeaver SHA-256; extracting to $DBEAVER_INSTALL_DIR"
+
+  run_step "install DBeaver" install_dbeaver_files
+}
+
+resolve_mullvad_deb_url() {
+  local json="$STATE_DIR/mullvad-releases-$TIMESTAMP.json"
+  local parsed=""
+
+  if command -v gh >/dev/null 2>&1; then
+    parsed="$(
+      gh api 'repos/mullvad/mullvadvpn-app/releases?per_page=30' \
+        --jq '
+          [.[] | select(.tag_name | test("^[0-9].*-beta"))]
+          | .[0].assets[]
+          | select(.name | test("^MullvadVPN-.*_amd64\\.deb$"))
+          | "\(.browser_download_url)\t\(.digest)"
+        ' \
+        | head -1
+    )"
+  else
+    download_url_to_file "$json" "$MULLVAD_RELEASES_API"
+    if command -v python3 >/dev/null 2>&1; then
+      parsed="$(
+        python3 - "$json" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    releases = json.load(handle)
+
+for release in releases:
+    tag = release.get("tag_name") or ""
+    if not re.match(r"^[0-9].*-beta", tag):
+        continue
+    for asset in release.get("assets", []):
+        name = asset.get("name", "")
+        if re.match(r"^MullvadVPN-.*_amd64\.deb$", name):
+            digest = asset.get("digest") or ""
+            if digest.startswith("sha256:"):
+                digest = digest[7:]
+            print(asset["browser_download_url"] + "\t" + digest)
+            raise SystemExit
+PY
+      )"
+    fi
+    rm -f "$json"
+  fi
+
+  MULLVAD_DOWNLOAD_URL="${parsed%%$'\t'*}"
+  MULLVAD_SHA256="${parsed#*$'\t'}"
+  MULLVAD_SHA256="${MULLVAD_SHA256#sha256:}"
+
+  case "$MULLVAD_DOWNLOAD_URL" in
+    https://github.com/mullvad/mullvadvpn-app/releases/download/*-beta*/MullvadVPN-*_amd64.deb) ;;
+    *)
+      log "Could not resolve a Mullvad VPN beta amd64 .deb from GitHub releases"
+      return 1
+      ;;
+  esac
+
+  if [ -z "$MULLVAD_SHA256" ] || [ "$MULLVAD_DOWNLOAD_URL" = "$MULLVAD_SHA256" ]; then
+    log "Could not parse the Mullvad VPN SHA-256 from GitHub releases"
+    return 1
+  fi
+
+  log "Mullvad VPN beta .deb: $MULLVAD_DOWNLOAD_URL"
+  return 0
+}
+
+download_mullvad_files() {
+  download_url_to_file "$MULLVAD_DEB" "$MULLVAD_DOWNLOAD_URL"
+  download_url_to_file "$MULLVAD_SIG" "${MULLVAD_DOWNLOAD_URL}.asc"
+  download_url_to_file "$MULLVAD_GPG_KEY" "$MULLVAD_GPG_KEY_URL"
+}
+
+verify_mullvad_signature() {
+  local imported_fingerprint=""
+  local status=""
+
+  rm -rf "$MULLVAD_GPG_HOME"
+  mkdir -m 700 -p "$MULLVAD_GPG_HOME"
+
+  status="$(
+    export GNUPGHOME="$MULLVAD_GPG_HOME"
+    gpg --batch --import "$MULLVAD_GPG_KEY" >/dev/null
+    gpg --batch --with-colons --fingerprint
+  )" || return 1
+
+  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
+  if [ "$imported_fingerprint" != "$MULLVAD_GPG_FINGERPRINT" ]; then
+    log "Mullvad VPN signing key fingerprint mismatch (expected $MULLVAD_GPG_FINGERPRINT, got $imported_fingerprint)"
+    return 1
+  fi
+
+  status="$(
+    export GNUPGHOME="$MULLVAD_GPG_HOME"
+    gpg --batch --status-fd 1 --verify "$MULLVAD_SIG" "$MULLVAD_DEB" 2>/dev/null
+  )" || true
+
+  if ! printf '%s\n' "$status" | awk -v fpr="$MULLVAD_GPG_FINGERPRINT" '
+    $2 == "VALIDSIG" && $NF == fpr { found = 1 }
+    END { exit !found }
+  '; then
+    log "Mullvad VPN .deb GPG verification failed"
+    return 1
+  fi
+
+  log "Verified Mullvad VPN .deb GPG signature (VALIDSIG $MULLVAD_GPG_FINGERPRINT)"
+  return 0
+}
+
+install_mullvad_files() {
+  local work="$STATE_DIR/mullvad-extract-$TIMESTAMP"
+  local data=""
+  local appdir=""
+  local unit=""
+  local desktop=""
+  local icon=""
+  local bin=""
+
+  rm -rf "$work"
+  mkdir -p "$work"
+  bsdtar -C "$work" -xf "$MULLVAD_DEB"
+  data="$(find "$work" -maxdepth 1 -name 'data.tar.*' | head -1)"
+  if [ -z "$data" ]; then
+    log "Mullvad VPN .deb has no data.tar payload"
+    return 1
+  fi
+  bsdtar -C "$work" -xf "$data"
+
+  if [ -x "$work/opt/Mullvad VPN/mullvad-vpn" ]; then
+    appdir="$work/opt/Mullvad VPN"
+  else
+    appdir="$(find "$work" -type d -name 'Mullvad VPN' | head -1)"
+  fi
+
+  if [ -z "$appdir" ] || [ ! -x "$appdir/mullvad-vpn" ]; then
+    log "Mullvad VPN .deb does not contain /opt/Mullvad VPN/mullvad-vpn"
+    return 1
+  fi
+
+  if [ ! -x "$work/usr/bin/mullvad-daemon" ]; then
+    log "Mullvad VPN .deb does not contain usr/bin/mullvad-daemon"
+    return 1
+  fi
+
+  sudo mkdir -p "$MULLVAD_INSTALL_DIR"
+  sudo cp -a "$appdir"/. "$MULLVAD_INSTALL_DIR"/
+  sudo chmod 755 "$MULLVAD_INSTALL_DIR/mullvad-vpn"
+
+  for bin in mullvad mullvad-daemon mullvad-exclude mullvad-problem-report; do
+    if [ -f "$work/usr/bin/$bin" ]; then
+      sudo install -D -m 755 "$work/usr/bin/$bin" "/usr/local/bin/$bin"
+    fi
+  done
+  if [ -f /usr/local/bin/mullvad-exclude ]; then
+    sudo chmod u+s /usr/local/bin/mullvad-exclude
+  fi
+
+  sudo tee /usr/local/bin/mullvad-vpn >/dev/null <<EOF
+#!/bin/bash
+exec "$MULLVAD_INSTALL_DIR/mullvad-vpn" --no-sandbox "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/mullvad-vpn
+
+  for unit in "$work"/usr/lib/systemd/system/mullvad-*.service; do
+    [ -f "$unit" ] || continue
+    sudo install -D -m 644 "$unit" "/usr/lib/systemd/system/$(basename "$unit")"
+    sudo sed -i 's|/usr/bin/mullvad-daemon|/usr/local/bin/mullvad-daemon|g' \
+      "/usr/lib/systemd/system/$(basename "$unit")"
+  done
+
+  if [ -d "$work/usr/share/dbus-1" ]; then
+    sudo mkdir -p /usr/share/dbus-1
+    sudo cp -a "$work/usr/share/dbus-1"/. /usr/share/dbus-1/
+  fi
+  if [ -d "$work/usr/share/polkit-1" ]; then
+    sudo mkdir -p /usr/share/polkit-1
+    sudo cp -a "$work/usr/share/polkit-1"/. /usr/share/polkit-1/
+  fi
+
+  desktop="$(find "$work" -type f -name 'mullvad-vpn.desktop' | head -1)"
+  if [ -n "$desktop" ]; then
+    sudo install -D -m 644 "$desktop" /usr/share/applications/mullvad-vpn.desktop
+    sudo sed -i 's|^Exec=.*|Exec=/usr/local/bin/mullvad-vpn %U|' /usr/share/applications/mullvad-vpn.desktop
+  else
+    sudo tee /usr/share/applications/mullvad-vpn.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=Mullvad VPN
+Comment=Mullvad VPN client
+Exec=/usr/local/bin/mullvad-vpn %U
+Icon=mullvad-vpn
+Terminal=false
+Type=Application
+Categories=Network;
+StartupNotify=true
+EOF
+    sudo chmod 644 /usr/share/applications/mullvad-vpn.desktop
+  fi
+
+  icon="$(find "$work" -type f \( -name 'mullvad-vpn.png' -o -name 'mullvad.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/mullvad-vpn.png
+  elif [ -d "$work/usr/share/icons" ]; then
+    sudo cp -a "$work/usr/share/icons"/. /usr/share/icons/
+  fi
+
+  if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+    sudo systemctl daemon-reload
+    sudo systemctl enable mullvad-daemon.service
+    sudo systemctl enable mullvad-early-boot-blocking.service
+    sudo systemctl start mullvad-daemon.service || log "Failed to start mullvad-daemon.service"
+  fi
+
+  rm -rf "$work" "$MULLVAD_DEB" "$MULLVAD_SIG" "$MULLVAD_GPG_KEY" "$MULLVAD_GPG_HOME"
+}
+
+install_mullvad() {
+  local file_size=0
+  local actual_hash=""
+
+  if [ "$SKIP_MULLVAD" = true ]; then
+    log "Skipping Mullvad VPN installation"
+    record_status "SKIPPED" "Mullvad VPN"
+    return 0
+  fi
+
+  install_package_group pacman "Mullvad VPN runtime packages" MULLVAD_RUNTIME_PACKAGES
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
+    FAILURES+=("resolve Mullvad VPN .deb (missing required command: curl, wget, or gh)")
+    record_status "FAIL" "resolve Mullvad VPN .deb"
+    log "Skipping Mullvad VPN install because curl, wget, and gh are not installed"
+    return 0
+  fi
+
+  if ! command -v gpg >/dev/null 2>&1; then
+    FAILURES+=("verify Mullvad VPN signature (missing required command: gpg)")
+    record_status "FAIL" "verify Mullvad VPN signature"
+    log "Skipping Mullvad VPN install because gpg is not installed"
+    return 0
+  fi
+
+  if ! command -v bsdtar >/dev/null 2>&1; then
+    FAILURES+=("extract Mullvad VPN .deb (missing required command: bsdtar)")
+    record_status "FAIL" "extract Mullvad VPN .deb"
+    log "Skipping Mullvad VPN install because bsdtar is not installed"
+    return 0
+  fi
+
+  if ! resolve_mullvad_deb_url; then
+    FAILURES+=("resolve Mullvad VPN beta amd64 .deb URL")
+    record_status "FAIL" "resolve Mullvad VPN beta amd64 .deb URL"
+    return 0
+  fi
+
+  run_step "download Mullvad VPN .deb" download_mullvad_files
+
+  if [ ! -e "$MULLVAD_DEB" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$MULLVAD_DEB" ]; then
+    FAILURES+=("download Mullvad VPN .deb (empty file)")
+    record_status "FAIL" "download Mullvad VPN .deb"
+    log "Downloaded Mullvad VPN file is empty: $MULLVAD_DEB"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$MULLVAD_DEB")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download Mullvad VPN .deb (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download Mullvad VPN .deb"
+    log "Downloaded Mullvad VPN file looks too small to be a .deb: $MULLVAD_DEB ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 7 "$MULLVAD_DEB")" != '!<arch>' ]; then
+    FAILURES+=("download Mullvad VPN .deb (not an ar archive)")
+    record_status "FAIL" "download Mullvad VPN .deb"
+    log "Downloaded Mullvad VPN file is not a .deb ar archive: $MULLVAD_DEB"
+    return 0
+  fi
+
+  if [ ! -s "$MULLVAD_SIG" ]; then
+    FAILURES+=("download Mullvad VPN signature (empty file)")
+    record_status "FAIL" "download Mullvad VPN signature"
+    log "Downloaded Mullvad VPN signature is empty: $MULLVAD_SIG"
+    return 0
+  fi
+
+  actual_hash="$(sha256sum "$MULLVAD_DEB" | awk '{ print $1 }')"
+  if [ "$actual_hash" != "$MULLVAD_SHA256" ]; then
+    FAILURES+=("verify Mullvad VPN checksum")
+    record_status "FAIL" "verify Mullvad VPN checksum"
+    log "Mullvad VPN SHA-256 mismatch (expected $MULLVAD_SHA256, got $actual_hash)"
+    return 0
+  fi
+
+  if ! verify_mullvad_signature; then
+    FAILURES+=("verify Mullvad VPN GPG signature")
+    record_status "FAIL" "verify Mullvad VPN GPG signature"
+    return 0
+  fi
+
+  log "Verified Mullvad VPN .deb ($file_size bytes); extracting to $MULLVAD_INSTALL_DIR"
+
+  run_step "install Mullvad VPN" install_mullvad_files
+}
+
+resolve_appimagelauncher_url() {
+  local json="$STATE_DIR/appimagelauncher-releases-$TIMESTAMP.json"
+  local parsed=""
+
+  if command -v gh >/dev/null 2>&1; then
+    parsed="$(
+      gh api repos/TheAssassin/AppImageLauncher/releases/latest \
+        --jq '.assets[] | select(.name | test("^appimagelauncher-lite-.*-x86_64\\.AppImage$")) | "\(.browser_download_url)\t\(.digest)"' \
+        | head -1
+    )"
+  else
+    download_url_to_file "$json" "$APPIMAGELAUNCHER_RELEASES_API"
+    if command -v python3 >/dev/null 2>&1; then
+      parsed="$(
+        python3 - "$json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+for asset in data.get("assets", []):
+    name = asset.get("name", "")
+    if name.startswith("appimagelauncher-lite-") and name.endswith("-x86_64.AppImage"):
+        digest = asset.get("digest") or ""
+        if digest.startswith("sha256:"):
+            print(asset["browser_download_url"] + "\t" + digest[7:])
+        break
+PY
+      )"
+    fi
+    rm -f "$json"
+  fi
+
+  APPIMAGELAUNCHER_DOWNLOAD_URL="${parsed%%$'\t'*}"
+  APPIMAGELAUNCHER_SHA256="${parsed#*$'\t'}"
+  APPIMAGELAUNCHER_SHA256="${APPIMAGELAUNCHER_SHA256#sha256:}"
+
+  case "$APPIMAGELAUNCHER_DOWNLOAD_URL" in
+    https://github.com/TheAssassin/AppImageLauncher/releases/download/*/appimagelauncher-lite-*-x86_64.AppImage) ;;
+    *)
+      log "Could not resolve an AppImageLauncher x86_64 AppImage from GitHub releases"
+      return 1
+      ;;
+  esac
+
+  if [ -z "$APPIMAGELAUNCHER_SHA256" ] || [ "$APPIMAGELAUNCHER_DOWNLOAD_URL" = "$APPIMAGELAUNCHER_SHA256" ]; then
+    log "Could not parse the AppImageLauncher SHA-256 from GitHub releases"
+    return 1
+  fi
+
+  log "AppImageLauncher AppImage: $APPIMAGELAUNCHER_DOWNLOAD_URL"
+  return 0
+}
+
+download_appimagelauncher_appimage() {
+  download_url_to_file "$APPIMAGELAUNCHER_DOWNLOAD" "$APPIMAGELAUNCHER_DOWNLOAD_URL"
+}
+
+install_appimagelauncher_files() {
+  local owner="$USER"
+  local group
+
+  group="$(id -gn "$owner")"
+
+  sudo mkdir -p "$APPIMAGELAUNCHER_INSTALL_DIR"
+  sudo install -D -m 755 "$APPIMAGELAUNCHER_DOWNLOAD" "$APPIMAGELAUNCHER_INSTALL_DIR/$APPIMAGELAUNCHER_APPIMAGE_NAME"
+  sudo chown -R "$owner:$group" "$APPIMAGELAUNCHER_INSTALL_DIR"
+  sudo chmod u+rwX "$APPIMAGELAUNCHER_INSTALL_DIR" "$APPIMAGELAUNCHER_INSTALL_DIR/$APPIMAGELAUNCHER_APPIMAGE_NAME"
+  sudo ln -sfn "$APPIMAGELAUNCHER_INSTALL_DIR/$APPIMAGELAUNCHER_APPIMAGE_NAME" /usr/local/bin/appimagelauncher
+
+  sudo tee /usr/share/applications/appimagelauncher.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=AppImageLauncher
+Comment=Integrate and run AppImage applications
+Exec=$APPIMAGELAUNCHER_INSTALL_DIR/$APPIMAGELAUNCHER_APPIMAGE_NAME %U
+Icon=appimagelauncher
+Terminal=false
+Type=Application
+Categories=Utility;System;
+StartupNotify=true
+EOF
+  sudo chmod 644 /usr/share/applications/appimagelauncher.desktop
+
+  rm -f "$APPIMAGELAUNCHER_DOWNLOAD"
+}
+
+install_appimagelauncher() {
+  local file_size=0
+  local actual_hash=""
+
+  if [ "$SKIP_APPIMAGELAUNCHER" = true ]; then
+    log "Skipping AppImageLauncher installation"
+    record_status "SKIPPED" "AppImageLauncher"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
+    FAILURES+=("resolve AppImageLauncher AppImage (missing required command: curl, wget, or gh)")
+    record_status "FAIL" "resolve AppImageLauncher AppImage"
+    log "Skipping AppImageLauncher install because curl, wget, and gh are not installed"
+    return 0
+  fi
+
+  if ! resolve_appimagelauncher_url; then
+    FAILURES+=("resolve AppImageLauncher x86_64 AppImage")
+    record_status "FAIL" "resolve AppImageLauncher x86_64 AppImage"
+    return 0
+  fi
+
+  run_step "download AppImageLauncher AppImage" download_appimagelauncher_appimage
+
+  if [ ! -e "$APPIMAGELAUNCHER_DOWNLOAD" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$APPIMAGELAUNCHER_DOWNLOAD" ]; then
+    FAILURES+=("download AppImageLauncher AppImage (empty file)")
+    record_status "FAIL" "download AppImageLauncher AppImage"
+    log "Downloaded AppImageLauncher file is empty: $APPIMAGELAUNCHER_DOWNLOAD"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$APPIMAGELAUNCHER_DOWNLOAD")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download AppImageLauncher AppImage (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download AppImageLauncher AppImage"
+    log "Downloaded AppImageLauncher file looks too small: $APPIMAGELAUNCHER_DOWNLOAD ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 4 "$APPIMAGELAUNCHER_DOWNLOAD")" != $'\x7fELF' ]; then
+    FAILURES+=("download AppImageLauncher AppImage (not an ELF/AppImage)")
+    record_status "FAIL" "download AppImageLauncher AppImage"
+    log "Downloaded AppImageLauncher file is not an ELF AppImage: $APPIMAGELAUNCHER_DOWNLOAD"
+    return 0
+  fi
+
+  actual_hash="$(sha256sum "$APPIMAGELAUNCHER_DOWNLOAD" | awk '{ print $1 }')"
+  if [ "$actual_hash" != "$APPIMAGELAUNCHER_SHA256" ]; then
+    FAILURES+=("verify AppImageLauncher checksum")
+    record_status "FAIL" "verify AppImageLauncher checksum"
+    log "AppImageLauncher SHA-256 mismatch (expected $APPIMAGELAUNCHER_SHA256, got $actual_hash)"
+    return 0
+  fi
+
+  chmod 700 "$APPIMAGELAUNCHER_DOWNLOAD"
+  log "Verified AppImageLauncher AppImage ($file_size bytes); installing to $APPIMAGELAUNCHER_INSTALL_DIR"
+
+  run_step "install AppImageLauncher AppImage" install_appimagelauncher_files
+}
+
 resolve_brave_origin_nightly_url() {
   local json="$STATE_DIR/brave-origin-nightly-releases-$TIMESTAMP.json"
 
@@ -2517,6 +3216,565 @@ install_origin_cli() {
   run_step "install Origin CLI" install_origin_cli_files
 }
 
+download_spotify_metadata() {
+  download_url_to_file "$SPOTIFY_PACKAGES" "$SPOTIFY_PACKAGES_URL"
+  download_url_to_file "$SPOTIFY_INRELEASE" "$SPOTIFY_INRELEASE_URL"
+  download_url_to_file "$SPOTIFY_GPG_KEY" "$SPOTIFY_GPG_KEY_URL"
+}
+
+verify_spotify_packages_signature() {
+  local imported_fingerprint=""
+  local status=""
+  local expected_hash=""
+  local actual_hash=""
+
+  rm -rf "$SPOTIFY_GPG_HOME"
+  mkdir -m 700 -p "$SPOTIFY_GPG_HOME"
+
+  status="$(
+    export GNUPGHOME="$SPOTIFY_GPG_HOME"
+    gpg --batch --import "$SPOTIFY_GPG_KEY" >/dev/null
+    gpg --batch --with-colons --fingerprint
+  )" || return 1
+
+  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
+  if [ "$imported_fingerprint" != "$SPOTIFY_GPG_FINGERPRINT" ]; then
+    log "Spotify signing key fingerprint mismatch (expected $SPOTIFY_GPG_FINGERPRINT, got $imported_fingerprint)"
+    return 1
+  fi
+
+  status="$(
+    export GNUPGHOME="$SPOTIFY_GPG_HOME"
+    gpg --batch --status-fd 1 --verify "$SPOTIFY_INRELEASE" 2>/dev/null
+  )" || true
+
+  if ! printf '%s\n' "$status" | awk -v fpr="$SPOTIFY_GPG_FINGERPRINT" '
+    $2 == "VALIDSIG" && $NF == fpr { found = 1 }
+    END { exit !found }
+  '; then
+    log "Spotify InRelease GPG verification failed"
+    return 1
+  fi
+
+  expected_hash="$(
+    awk '
+      $0 == "SHA256:" { in_sha = 1; next }
+      in_sha && /^[A-Z]/ { in_sha = 0 }
+      in_sha && $3 == "non-free/binary-amd64/Packages" { print $1; exit }
+    ' "$SPOTIFY_INRELEASE"
+  )"
+  actual_hash="$(sha256sum "$SPOTIFY_PACKAGES" | awk '{ print $1 }')"
+  if [ -z "$expected_hash" ] || [ "$actual_hash" != "$expected_hash" ]; then
+    log "Spotify Packages SHA-256 mismatch (expected $expected_hash, got $actual_hash)"
+    return 1
+  fi
+
+  log "Verified Spotify Packages GPG signature and SHA-256"
+  return 0
+}
+
+parse_spotify_deb() {
+  local parsed=""
+
+  parsed="$(
+    awk '
+      $0 == "Package: spotify-client" { inpkg = 1; file = ""; hash = ""; next }
+      inpkg && /^Package:/ { inpkg = 0 }
+      inpkg && /^Filename:/ { file = $2 }
+      inpkg && /^SHA256:/ { hash = $2 }
+      END {
+        if (file != "" && hash != "") {
+          print file "\t" hash
+        }
+      }
+    ' "$SPOTIFY_PACKAGES"
+  )"
+
+  SPOTIFY_DEB_URL="https://repository.spotify.com/${parsed%%$'\t'*}"
+  SPOTIFY_SHA256="${parsed#*$'\t'}"
+
+  case "$SPOTIFY_DEB_URL" in
+    https://repository.spotify.com/pool/non-free/s/spotify-client/spotify-client_*_amd64.deb) ;;
+    *)
+      log "Could not parse a Spotify amd64 .deb URL from $SPOTIFY_PACKAGES_URL"
+      return 1
+      ;;
+  esac
+
+  if [ -z "$SPOTIFY_SHA256" ] || [ "$SPOTIFY_DEB_URL" = "$SPOTIFY_SHA256" ]; then
+    log "Could not parse the Spotify SHA-256 from $SPOTIFY_PACKAGES_URL"
+    return 1
+  fi
+
+  log "Spotify: $SPOTIFY_DEB_URL"
+  return 0
+}
+
+download_spotify_deb() {
+  download_url_to_file "$SPOTIFY_DEB" "$SPOTIFY_DEB_URL"
+}
+
+install_spotify_files() {
+  local owner="$USER"
+  local group
+  local work="$STATE_DIR/spotify-extract-$TIMESTAMP"
+  local data=""
+  local appdir=""
+  local icon=""
+  local candidate=""
+
+  group="$(id -gn "$owner")"
+
+  rm -rf "$work"
+  mkdir -p "$work"
+  bsdtar -C "$work" -xf "$SPOTIFY_DEB"
+  data="$(find "$work" -maxdepth 1 -name 'data.tar.*' | head -1)"
+  if [ -z "$data" ]; then
+    log "Spotify .deb has no data.tar payload"
+    return 1
+  fi
+  bsdtar -C "$work" -xf "$data"
+
+  if [ -x "$work/usr/share/spotify/spotify" ]; then
+    appdir="$work/usr/share/spotify"
+  else
+    while IFS= read -r candidate; do
+      if [ "$(head -c 4 "$candidate")" = $'\x7fELF' ]; then
+        appdir="$(dirname "$candidate")"
+        break
+      fi
+    done < <(find "$work" -type f -name spotify)
+  fi
+
+  if [ -z "$appdir" ] || [ ! -x "$appdir/spotify" ]; then
+    log "Spotify .deb does not contain a spotify binary"
+    return 1
+  fi
+
+  sudo mkdir -p "$SPOTIFY_INSTALL_DIR"
+  sudo cp -a "$appdir"/. "$SPOTIFY_INSTALL_DIR"/
+  sudo chown -R "$owner:$group" "$SPOTIFY_INSTALL_DIR"
+  sudo chmod u+rwX "$SPOTIFY_INSTALL_DIR"
+  sudo chmod 755 "$SPOTIFY_INSTALL_DIR/spotify"
+  sudo tee /usr/local/bin/spotify >/dev/null <<EOF
+#!/bin/bash
+exec $SPOTIFY_INSTALL_DIR/spotify --no-sandbox "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/spotify
+
+  sudo tee /usr/share/applications/spotify.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=Spotify
+GenericName=Music Player
+Comment=Spotify streaming music client
+Exec=/usr/local/bin/spotify %U
+Icon=spotify-client
+Terminal=false
+Type=Application
+Categories=Audio;Music;Player;AudioVideo;
+MimeType=x-scheme-handler/spotify;
+StartupWMClass=spotify
+EOF
+  sudo chmod 644 /usr/share/applications/spotify.desktop
+
+  icon="$(find "$work" -type f \( -name 'spotify-linux-*.png' -o -name 'spotify-client.png' -o -name 'spotify.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/spotify-client.png
+  fi
+
+  rm -rf "$work" "$SPOTIFY_DEB" "$SPOTIFY_PACKAGES" "$SPOTIFY_INRELEASE" "$SPOTIFY_GPG_KEY" "$SPOTIFY_GPG_HOME"
+}
+
+install_spotify() {
+  local file_size=0
+  local actual_hash=""
+
+  if [ "$SKIP_SPOTIFY" = true ]; then
+    log "Skipping Spotify installation"
+    record_status "SKIPPED" "Spotify"
+    return 0
+  fi
+
+  install_package_group pacman "Spotify runtime packages" SPOTIFY_RUNTIME_PACKAGES
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    FAILURES+=("download Spotify metadata (missing required command: curl or wget)")
+    record_status "FAIL" "download Spotify metadata"
+    log "Skipping Spotify install because neither curl nor wget is installed"
+    return 0
+  fi
+
+  if ! command -v gpg >/dev/null 2>&1; then
+    FAILURES+=("verify Spotify Packages signature (missing required command: gpg)")
+    record_status "FAIL" "verify Spotify Packages signature"
+    log "Skipping Spotify install because gpg is not installed"
+    return 0
+  fi
+
+  if ! command -v bsdtar >/dev/null 2>&1; then
+    FAILURES+=("extract Spotify .deb (missing required command: bsdtar)")
+    record_status "FAIL" "extract Spotify .deb"
+    log "Skipping Spotify install because bsdtar is not installed"
+    return 0
+  fi
+
+  run_step "download Spotify metadata" download_spotify_metadata
+
+  if [ ! -s "$SPOTIFY_PACKAGES" ] || [ ! -s "$SPOTIFY_INRELEASE" ]; then
+    return 0
+  fi
+
+  if ! verify_spotify_packages_signature; then
+    FAILURES+=("verify Spotify Packages GPG signature")
+    record_status "FAIL" "verify Spotify Packages GPG signature"
+    return 0
+  fi
+
+  if ! parse_spotify_deb; then
+    FAILURES+=("parse Spotify amd64 .deb URL")
+    record_status "FAIL" "parse Spotify amd64 .deb URL"
+    return 0
+  fi
+
+  run_step "download Spotify .deb" download_spotify_deb
+
+  if [ ! -e "$SPOTIFY_DEB" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$SPOTIFY_DEB" ]; then
+    FAILURES+=("download Spotify .deb (empty file)")
+    record_status "FAIL" "download Spotify .deb"
+    log "Downloaded Spotify file is empty: $SPOTIFY_DEB"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$SPOTIFY_DEB")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download Spotify .deb (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download Spotify .deb"
+    log "Downloaded Spotify file looks too small to be a .deb: $SPOTIFY_DEB ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 7 "$SPOTIFY_DEB")" != '!<arch>' ]; then
+    FAILURES+=("download Spotify .deb (not an ar archive)")
+    record_status "FAIL" "download Spotify .deb"
+    log "Downloaded Spotify file is not a .deb ar archive: $SPOTIFY_DEB"
+    return 0
+  fi
+
+  actual_hash="$(sha256sum "$SPOTIFY_DEB" | awk '{ print $1 }')"
+  if [ "$actual_hash" != "$SPOTIFY_SHA256" ]; then
+    FAILURES+=("verify Spotify checksum")
+    record_status "FAIL" "verify Spotify checksum"
+    log "Spotify SHA-256 mismatch (expected $SPOTIFY_SHA256, got $actual_hash)"
+    return 0
+  fi
+
+  log "Verified Spotify .deb ($file_size bytes); extracting to $SPOTIFY_INSTALL_DIR"
+
+  run_step "install Spotify" install_spotify_files
+}
+
+resolve_pomotroid_url() {
+  local json="$STATE_DIR/pomotroid-releases-$TIMESTAMP.json"
+  local parsed=""
+
+  if command -v gh >/dev/null 2>&1; then
+    parsed="$(
+      gh api repos/Splode/pomotroid/releases/latest \
+        --jq '.assets[] | select(.name | test("^Pomotroid_.*_amd64\\.AppImage$")) | "\(.browser_download_url)\t\(.digest)"' \
+        | head -1
+    )"
+  else
+    download_url_to_file "$json" "$POMOTROID_RELEASES_API"
+    if command -v python3 >/dev/null 2>&1; then
+      parsed="$(
+        python3 - "$json" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+for asset in data.get("assets", []):
+    name = asset.get("name", "")
+    if re.match(r"^Pomotroid_.*_amd64\.AppImage$", name):
+        digest = asset.get("digest") or ""
+        if digest.startswith("sha256:"):
+            digest = digest[7:]
+        print(asset["browser_download_url"] + "\t" + digest)
+        break
+PY
+      )"
+    fi
+    rm -f "$json"
+  fi
+
+  POMOTROID_DOWNLOAD_URL="${parsed%%$'\t'*}"
+  POMOTROID_SHA256="${parsed#*$'\t'}"
+  POMOTROID_SHA256="${POMOTROID_SHA256#sha256:}"
+
+  case "$POMOTROID_DOWNLOAD_URL" in
+    https://github.com/Splode/pomotroid/releases/download/*/Pomotroid_*_amd64.AppImage) ;;
+    *)
+      log "Could not resolve a Pomotroid amd64 AppImage from GitHub releases"
+      return 1
+      ;;
+  esac
+
+  if [ -z "$POMOTROID_SHA256" ] || [ "$POMOTROID_DOWNLOAD_URL" = "$POMOTROID_SHA256" ]; then
+    log "Could not parse the Pomotroid SHA-256 from GitHub releases"
+    return 1
+  fi
+
+  log "Pomotroid AppImage: $POMOTROID_DOWNLOAD_URL"
+  return 0
+}
+
+download_pomotroid_appimage() {
+  download_url_to_file "$POMOTROID_DOWNLOAD" "$POMOTROID_DOWNLOAD_URL"
+}
+
+extract_pomotroid_icon() {
+  local icon=""
+
+  mkdir -p "$POMOTROID_ICON_DIR"
+  (
+    cd "$POMOTROID_ICON_DIR"
+    "$POMOTROID_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/512x512/apps/*' >/dev/null 2>&1 || true
+    "$POMOTROID_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/256x256/apps/*' >/dev/null 2>&1 || true
+    "$POMOTROID_DOWNLOAD" --appimage-extract '*.png' >/dev/null 2>&1 || true
+  )
+
+  icon="$(find "$POMOTROID_ICON_DIR" -type f -name '*.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -n "$icon" ] && [ -f "$icon" ]; then
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/pomotroid.png
+    log "Installed Pomotroid icon from AppImage: $icon"
+    return 0
+  fi
+
+  log "Could not extract a Pomotroid icon; desktop entry will use the pomotroid icon name"
+  return 0
+}
+
+install_pomotroid_files() {
+  local owner="$USER"
+  local group
+
+  group="$(id -gn "$owner")"
+
+  sudo mkdir -p "$POMOTROID_INSTALL_DIR"
+  sudo install -D -m 755 "$POMOTROID_DOWNLOAD" "$POMOTROID_INSTALL_DIR/$POMOTROID_APPIMAGE_NAME"
+  sudo chown -R "$owner:$group" "$POMOTROID_INSTALL_DIR"
+  sudo chmod u+rwX "$POMOTROID_INSTALL_DIR" "$POMOTROID_INSTALL_DIR/$POMOTROID_APPIMAGE_NAME"
+  sudo ln -sfn "$POMOTROID_INSTALL_DIR/$POMOTROID_APPIMAGE_NAME" /usr/local/bin/pomotroid
+
+  sudo tee /usr/share/applications/pomotroid.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=Pomotroid
+Comment=Simple and configurable Pomodoro timer
+Exec=$POMOTROID_INSTALL_DIR/$POMOTROID_APPIMAGE_NAME --no-sandbox %U
+Icon=pomotroid
+Terminal=false
+Type=Application
+Categories=Office;Utility;
+StartupWMClass=pomotroid
+EOF
+  sudo chmod 644 /usr/share/applications/pomotroid.desktop
+  extract_pomotroid_icon
+  rm -rf "$POMOTROID_ICON_DIR" "$POMOTROID_DOWNLOAD"
+}
+
+install_pomotroid() {
+  local file_size=0
+  local actual_hash=""
+
+  if [ "$SKIP_POMOTROID" = true ]; then
+    log "Skipping Pomotroid installation"
+    record_status "SKIPPED" "Pomotroid"
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
+    FAILURES+=("resolve Pomotroid AppImage (missing required command: curl, wget, or gh)")
+    record_status "FAIL" "resolve Pomotroid AppImage"
+    log "Skipping Pomotroid install because curl, wget, and gh are not installed"
+    return 0
+  fi
+
+  if ! resolve_pomotroid_url; then
+    FAILURES+=("resolve Pomotroid amd64 AppImage")
+    record_status "FAIL" "resolve Pomotroid amd64 AppImage"
+    return 0
+  fi
+
+  run_step "download Pomotroid AppImage" download_pomotroid_appimage
+
+  if [ ! -e "$POMOTROID_DOWNLOAD" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$POMOTROID_DOWNLOAD" ]; then
+    FAILURES+=("download Pomotroid AppImage (empty file)")
+    record_status "FAIL" "download Pomotroid AppImage"
+    log "Downloaded Pomotroid file is empty: $POMOTROID_DOWNLOAD"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$POMOTROID_DOWNLOAD")"
+  if [ "$file_size" -lt 10000000 ]; then
+    FAILURES+=("download Pomotroid AppImage (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download Pomotroid AppImage"
+    log "Downloaded Pomotroid file looks too small: $POMOTROID_DOWNLOAD ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 4 "$POMOTROID_DOWNLOAD")" != $'\x7fELF' ]; then
+    FAILURES+=("download Pomotroid AppImage (not an ELF/AppImage)")
+    record_status "FAIL" "download Pomotroid AppImage"
+    log "Downloaded Pomotroid file is not an ELF AppImage: $POMOTROID_DOWNLOAD"
+    return 0
+  fi
+
+  actual_hash="$(sha256sum "$POMOTROID_DOWNLOAD" | awk '{ print $1 }')"
+  if [ "$actual_hash" != "$POMOTROID_SHA256" ]; then
+    FAILURES+=("verify Pomotroid checksum")
+    record_status "FAIL" "verify Pomotroid checksum"
+    log "Pomotroid SHA-256 mismatch (expected $POMOTROID_SHA256, got $actual_hash)"
+    return 0
+  fi
+
+  chmod 700 "$POMOTROID_DOWNLOAD"
+  log "Verified Pomotroid AppImage ($file_size bytes); installing to $POMOTROID_INSTALL_DIR"
+
+  run_step "install Pomotroid AppImage" install_pomotroid_files
+}
+
+resolve_debtap_url() {
+  local json="$STATE_DIR/debtap-releases-$TIMESTAMP.json"
+
+  if command -v gh >/dev/null 2>&1; then
+    DEBTAP_TARBALL_URL="$(gh api repos/helixarch/debtap/releases/latest --jq .tarball_url)"
+  else
+    download_url_to_file "$json" "$DEBTAP_RELEASES_API"
+    if command -v python3 >/dev/null 2>&1; then
+      DEBTAP_TARBALL_URL="$(
+        python3 - "$json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+print(data.get("tarball_url") or "")
+PY
+      )"
+    fi
+    rm -f "$json"
+  fi
+
+  case "$DEBTAP_TARBALL_URL" in
+    https://api.github.com/repos/helixarch/debtap/tarball/*) ;;
+    *)
+      log "Could not resolve a debtap source tarball from GitHub releases"
+      return 1
+      ;;
+  esac
+
+  log "debtap tarball: $DEBTAP_TARBALL_URL"
+  return 0
+}
+
+download_debtap_tarball() {
+  download_url_to_file "$DEBTAP_TARBALL" "$DEBTAP_TARBALL_URL"
+}
+
+install_debtap_files() {
+  local script=""
+
+  rm -rf "$DEBTAP_EXTRACT"
+  mkdir -p "$DEBTAP_EXTRACT"
+  bsdtar -C "$DEBTAP_EXTRACT" -xf "$DEBTAP_TARBALL"
+  script="$(find "$DEBTAP_EXTRACT" -type f -name debtap | head -1)"
+  if [ -z "$script" ] || [ ! -s "$script" ]; then
+    log "debtap tarball does not contain a debtap script"
+    return 1
+  fi
+  if ! grep -q '^#!/usr/bin/bash' "$script"; then
+    log "debtap script is missing the expected bash shebang"
+    return 1
+  fi
+
+  sudo install -D -m 755 "$script" "$DEBTAP_BIN"
+  rm -rf "$DEBTAP_EXTRACT" "$DEBTAP_TARBALL"
+}
+
+install_debtap() {
+  local file_size=0
+
+  if [ "$SKIP_DEBTAP" = true ]; then
+    log "Skipping debtap installation"
+    record_status "SKIPPED" "debtap"
+    return 0
+  fi
+
+  install_package_group pacman "debtap runtime packages" DEBTAP_RUNTIME_PACKAGES
+
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
+    FAILURES+=("resolve debtap tarball (missing required command: curl, wget, or gh)")
+    record_status "FAIL" "resolve debtap tarball"
+    log "Skipping debtap install because curl, wget, and gh are not installed"
+    return 0
+  fi
+
+  if ! command -v bsdtar >/dev/null 2>&1; then
+    FAILURES+=("extract debtap tarball (missing required command: bsdtar)")
+    record_status "FAIL" "extract debtap tarball"
+    log "Skipping debtap install because bsdtar is not installed"
+    return 0
+  fi
+
+  if ! resolve_debtap_url; then
+    FAILURES+=("resolve debtap GitHub tarball")
+    record_status "FAIL" "resolve debtap GitHub tarball"
+    return 0
+  fi
+
+  run_step "download debtap tarball" download_debtap_tarball
+
+  if [ ! -e "$DEBTAP_TARBALL" ]; then
+    return 0
+  fi
+
+  if [ ! -s "$DEBTAP_TARBALL" ]; then
+    FAILURES+=("download debtap tarball (empty file)")
+    record_status "FAIL" "download debtap tarball"
+    log "Downloaded debtap file is empty: $DEBTAP_TARBALL"
+    return 0
+  fi
+
+  file_size="$(stat -c%s "$DEBTAP_TARBALL")"
+  if [ "$file_size" -lt 10000 ]; then
+    FAILURES+=("download debtap tarball (file too small: ${file_size} bytes)")
+    record_status "FAIL" "download debtap tarball"
+    log "Downloaded debtap file looks too small: $DEBTAP_TARBALL ($file_size bytes)"
+    return 0
+  fi
+
+  if [ "$(head -c 2 "$DEBTAP_TARBALL")" != $'\x1f\x8b' ]; then
+    FAILURES+=("download debtap tarball (not a gzip archive)")
+    record_status "FAIL" "download debtap tarball"
+    log "Downloaded debtap file is not a gzip archive: $DEBTAP_TARBALL"
+    return 0
+  fi
+
+  log "Verified debtap tarball ($file_size bytes); installing to $DEBTAP_BIN"
+
+  run_step "install debtap" install_debtap_files
+}
+
 print_summary() {
   log ""
   log "Install log: $LOG_FILE"
@@ -2576,6 +3834,15 @@ main() {
       --skip-element)
         SKIP_ELEMENT=true
         ;;
+      --skip-dbeaver)
+        SKIP_DBEAVER=true
+        ;;
+      --skip-appimagelauncher)
+        SKIP_APPIMAGELAUNCHER=true
+        ;;
+      --skip-mullvad)
+        SKIP_MULLVAD=true
+        ;;
       --skip-brave-origin-nightly)
         SKIP_BRAVE_ORIGIN_NIGHTLY=true
         ;;
@@ -2584,6 +3851,15 @@ main() {
         ;;
       --skip-origin-cli)
         SKIP_ORIGIN_CLI=true
+        ;;
+      --skip-spotify)
+        SKIP_SPOTIFY=true
+        ;;
+      --skip-pomotroid)
+        SKIP_POMOTROID=true
+        ;;
+      --skip-debtap)
+        SKIP_DEBTAP=true
         ;;
       --yes)
         ASSUME_YES=true
@@ -2621,8 +3897,10 @@ main() {
   install_package_group pacman "Desktop packages" PACMAN_DESKTOP_PACKAGES
   install_package_group pacman "Utility packages" PACMAN_UTIL_PACKAGES
   install_package_group pacman "Fonts and prompt" PACMAN_FONT_PACKAGES
+  install_package_group pacman "Gaming packages" PACMAN_GAMING_PACKAGES
   install_package_group yay "AUR packages" AUR_PACKAGES
   install_omf
+  install_appimagelauncher
   install_remnote
   install_todoist
   install_nextcloud
@@ -2633,9 +3911,14 @@ main() {
   install_betterbird
   install_zotero
   install_element
+  install_dbeaver
+  install_mullvad
   install_brave_origin_nightly
   install_cursor
   install_origin_cli
+  install_spotify
+  install_pomotroid
+  install_debtap
 
   print_summary
 
