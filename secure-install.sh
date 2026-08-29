@@ -102,8 +102,8 @@ APPIMAGELAUNCHER_APPIMAGE_NAME="AppImageLauncher.AppImage"
 APPIMAGELAUNCHER_DOWNLOAD="$STATE_DIR/appimagelauncher-$TIMESTAMP.AppImage"
 APPIMAGELAUNCHER_DOWNLOAD_URL=""
 APPIMAGELAUNCHER_SHA256=""
-# Beta linux amd64 .deb (not arm64, not rpm). Website latest-beta returns HTML
-# to non-wget clients; resolve the newest desktop *-beta* GitHub release.
+# Newest desktop linux amd64 .deb (stable or beta; not arm64, not rpm, not
+# android). Website latest-beta returns HTML to non-wget clients.
 MULLVAD_RELEASES_API="https://api.github.com/repos/mullvad/mullvadvpn-app/releases?per_page=30"
 MULLVAD_GPG_KEY_URL="https://mullvad.net/media/mullvad-code-signing.asc"
 # Mullvad (code signing) <admin@mullvad.net>
@@ -307,7 +307,7 @@ Options:
   --skip-element   Skip the Element Desktop amd64 .deb extract and install
   --skip-dbeaver   Skip the DBeaver CE linux-x86_64 tarball download and install
   --skip-appimagelauncher  Skip the AppImageLauncher x86_64 AppImage download and install
-  --skip-mullvad   Skip the Mullvad VPN beta amd64 .deb extract and install
+  --skip-mullvad   Skip the Mullvad VPN amd64 .deb extract and install
   --skip-brave-origin-nightly  Skip the Brave Origin Nightly zip download and install
   --skip-cursor    Skip the Cursor nightly (dev) AppImage download and install
   --skip-origin-cli  Skip the Cursor Origin CLI tarball download and install
@@ -2233,7 +2233,7 @@ resolve_mullvad_deb_url() {
     parsed="$(
       gh api 'repos/mullvad/mullvadvpn-app/releases?per_page=30' \
         --jq '
-          [.[] | select(.tag_name | test("^[0-9].*-beta"))]
+          [.[] | select(.tag_name | test("^[0-9]"))]
           | .[0].assets[]
           | select(.name | test("^MullvadVPN-.*_amd64\\.deb$"))
           | "\(.browser_download_url)\t\(.digest)"
@@ -2254,7 +2254,7 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 
 for release in releases:
     tag = release.get("tag_name") or ""
-    if not re.match(r"^[0-9].*-beta", tag):
+    if not re.match(r"^[0-9]", tag):
         continue
     for asset in release.get("assets", []):
         name = asset.get("name", "")
@@ -2275,9 +2275,9 @@ PY
   MULLVAD_SHA256="${MULLVAD_SHA256#sha256:}"
 
   case "$MULLVAD_DOWNLOAD_URL" in
-    https://github.com/mullvad/mullvadvpn-app/releases/download/*-beta*/MullvadVPN-*_amd64.deb) ;;
+    https://github.com/mullvad/mullvadvpn-app/releases/download/*/MullvadVPN-*_amd64.deb) ;;
     *)
-      log "Could not resolve a Mullvad VPN beta amd64 .deb from GitHub releases"
+      log "Could not resolve a Mullvad VPN amd64 .deb from GitHub releases"
       return 1
       ;;
   esac
@@ -2287,7 +2287,7 @@ PY
     return 1
   fi
 
-  log "Mullvad VPN beta .deb: $MULLVAD_DOWNLOAD_URL"
+  log "Mullvad VPN .deb: $MULLVAD_DOWNLOAD_URL"
   return 0
 }
 
@@ -2473,8 +2473,8 @@ install_mullvad() {
   fi
 
   if ! resolve_mullvad_deb_url; then
-    FAILURES+=("resolve Mullvad VPN beta amd64 .deb URL")
-    record_status "FAIL" "resolve Mullvad VPN beta amd64 .deb URL"
+    FAILURES+=("resolve Mullvad VPN amd64 .deb URL")
+    record_status "FAIL" "resolve Mullvad VPN amd64 .deb URL"
     return 0
   fi
 
