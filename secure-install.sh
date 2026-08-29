@@ -9,8 +9,6 @@ LOG_FILE="$STATE_DIR/install-$TIMESTAMP.log"
 STATUS_FILE="$STATE_DIR/install-$TIMESTAMP.status"
 OMF_INSTALLER="$STATE_DIR/omf-install-$TIMESTAMP.fish"
 OMF_INSTALL_URL="https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install"
-CATPPUCCIN_KDE_REPO_URL="https://github.com/catppuccin/kde"
-CATPPUCCIN_KDE_DIR="$STATE_DIR/catppuccin-kde-$TIMESTAMP"
 REMNOTE_DOWNLOAD_URL="https://backend.remnote.com/desktop/linux"
 # RemNote's download endpoint rejects non-browser clients with 403. curl/wget
 # send this so the script can follow the redirect to the AppImage. No extra
@@ -116,14 +114,9 @@ PACMAN_CORE_PACKAGES=(
 )
 
 PACMAN_DESKTOP_PACKAGES=(
-  ark
+  file-roller
   flameshot
   gparted
-  kate
-  libplasma
-  qt5-graphicaleffects
-  qt5-quickcontrols
-  qt5-quickcontrols2
 )
 
 PACMAN_UTIL_PACKAGES=(
@@ -140,18 +133,16 @@ PACMAN_UTIL_PACKAGES=(
   power-profiles-daemon
 )
 
-PACMAN_THEME_PACKAGES=(
-  catppuccin-gtk-theme-mocha
-  nwg-look
+PACMAN_FONT_PACKAGES=(
   starship
   ttf-firacode-nerd
   ttf-hack-nerd
-  ttf-jetbrains-mono-nerd
   ttf-meslo-nerd
   ttf-nerd-fonts-symbols-mono
 )
 
 AUR_PACKAGES=(
+  appimagelauncher
   ttf-ms-fonts
   ttf-vista-fonts
 )
@@ -329,31 +320,6 @@ install_omf() {
   [ "$ASSUME_YES" = true ] && omf_command+=(--yes)
 
   run_step "install Oh My Fish" "${omf_command[@]}"
-}
-
-install_catppuccin_kde() {
-  if ! command -v git >/dev/null 2>&1; then
-    FAILURES+=("clone Catppuccin KDE installer (missing required command: git)")
-    record_status "FAIL" "clone Catppuccin KDE installer"
-    log "Skipping Catppuccin KDE install because git is not installed"
-    return 0
-  fi
-
-  if [ -d "$CATPPUCCIN_KDE_DIR" ] && [ "$DRY_RUN" = false ]; then
-    rm -rf "$CATPPUCCIN_KDE_DIR"
-  fi
-
-  run_step "clone Catppuccin KDE installer" git clone --depth=1 "$CATPPUCCIN_KDE_REPO_URL" "$CATPPUCCIN_KDE_DIR"
-
-  if [ ! -d "$CATPPUCCIN_KDE_DIR" ]; then
-    return 0
-  fi
-
-  log "Starting upstream Catppuccin KDE installer."
-  log "Choose Mocha with the Flamingo accent in the prompts to match this dotfiles setup."
-  log "The upstream installer remains interactive by design."
-
-  run_step "install Catppuccin KDE upstream theme" bash -lc 'cd "$1" && ./install.sh' _ "$CATPPUCCIN_KDE_DIR"
 }
 
 download_remnote_appimage() {
@@ -1966,9 +1932,8 @@ main() {
   install_package_group pacman "Core packages" PACMAN_CORE_PACKAGES
   install_package_group pacman "Desktop packages" PACMAN_DESKTOP_PACKAGES
   install_package_group pacman "Utility packages" PACMAN_UTIL_PACKAGES
-  install_package_group pacman "Theme packages" PACMAN_THEME_PACKAGES
+  install_package_group pacman "Fonts and prompt" PACMAN_FONT_PACKAGES
   install_package_group yay "AUR packages" AUR_PACKAGES
-  install_catppuccin_kde
   install_omf
   install_remnote
   install_todoist

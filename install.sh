@@ -6,7 +6,6 @@ set -e
 
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$HOME/dotfiles-backup-$(date +%Y%m%d_%H%M%S)"
-EXPECTED_KDE_COLOR_SCHEME="CatppuccinMochaFlamingo"
 
 create_symlink() {
     local source="$1"
@@ -71,35 +70,6 @@ if [ -f "$DOTFILES_DIR/.config/gh/config.yml" ]; then
         mkdir -p "$HOME/.config/gh"
     fi
     create_symlink "$DOTFILES_DIR/.config/gh/config.yml" "$HOME/.config/gh/config.yml"
-fi
-
-echo ""
-echo "Desktop theme helpers"
-link_if_present ".config/kdedefaults" "$HOME/.config/kdedefaults"
-link_if_present ".config/nwg-look" "$HOME/.config/nwg-look"
-link_if_present ".config/xsettingsd" "$HOME/.config/xsettingsd"
-
-if [ -d "$DOTFILES_DIR/plasma-themes/Catppuccin.Macchiato" ]; then
-    echo ""
-    echo "Plasma look-and-feel (requires sudo)"
-    if [ -e "/usr/share/plasma/look-and-feel/Catppuccin.Macchiato" ] && [ ! -L "/usr/share/plasma/look-and-feel/Catppuccin.Macchiato" ]; then
-        sudo mkdir -p "$BACKUP_DIR/usr/share/plasma/look-and-feel"
-        sudo mv "/usr/share/plasma/look-and-feel/Catppuccin.Macchiato" "$BACKUP_DIR/usr/share/plasma/look-and-feel/"
-    fi
-    if [ -L "/usr/share/plasma/look-and-feel/Catppuccin.Macchiato" ]; then
-        sudo rm "/usr/share/plasma/look-and-feel/Catppuccin.Macchiato"
-    fi
-    echo "Linking: /usr/share/plasma/look-and-feel/Catppuccin.Macchiato -> $DOTFILES_DIR/plasma-themes/Catppuccin.Macchiato"
-    sudo ln -s "$DOTFILES_DIR/plasma-themes/Catppuccin.Macchiato" "/usr/share/plasma/look-and-feel/Catppuccin.Macchiato"
-fi
-
-echo ""
-echo "Checking Catppuccin KDE colorscheme"
-if compgen -G "/usr/share/color-schemes/${EXPECTED_KDE_COLOR_SCHEME}.colors" >/dev/null || \
-   compgen -G "$HOME/.local/share/color-schemes/${EXPECTED_KDE_COLOR_SCHEME}.colors" >/dev/null; then
-    echo "Found ${EXPECTED_KDE_COLOR_SCHEME}"
-else
-    echo "Missing ${EXPECTED_KDE_COLOR_SCHEME}; run ./secure-install.sh for the upstream Catppuccin KDE installer"
 fi
 
 echo ""

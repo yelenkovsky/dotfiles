@@ -1,6 +1,6 @@
 # Dotfiles
 
-Public Fish, Ghostty, Vim, Cursor, and Catppuccin setup for a Linux desktop.
+Public Fish, Ghostty, Vim, and Cursor setup for a Linux desktop.
 
 ## Install
 
@@ -8,13 +8,11 @@ Public Fish, Ghostty, Vim, Cursor, and Catppuccin setup for a Linux desktop.
 git clone https://github.com/yelenkovsky/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 chmod +x install.sh secure-install.sh setup/*.sh
-./secure-install.sh --yes   # packages; Catppuccin KDE installer is still interactive
+./secure-install.sh --yes   # packages
 ./install.sh                # symlink configs into $HOME
 ```
 
 `install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`.
-
-On first Catppuccin KDE prompt, choose **Mocha** with the **Flamingo** accent.
 
 ## What is linked
 
@@ -29,8 +27,6 @@ On first Catppuccin KDE prompt, choose **Mocha** with the **Flamingo** accent.
 | `.config/gh/config.yml` | GitHub CLI (no `hosts.yml`) |
 | `.config/Cursor/` | Editor settings, keybindings, snippets |
 | `.cursor/skills/add-secure-install-app` | Cursor skill for adding apps to `secure-install.sh` |
-| `.config/kdedefaults`, `nwg-look`, `xsettingsd` | Theme helpers |
-| `plasma-themes/Catppuccin.Macchiato` | Plasma look-and-feel (system-wide symlink) |
 
 ## Extra setup
 
