@@ -1,16 +1,19 @@
 ---
 name: add-secure-install-app
 description: >-
-  Add a third-party desktop app or CLI to dotfiles secure-install.sh using the
-  existing download, verify, /opt or /usr/local/bin, skip-flag pattern. Use when
-  the user asks to add RemNote, Todoist, Nextcloud, Betterbird, Proton Pass,
-  Proton Drive, pass-cli, an AppImage, a GitHub release binary, a .deb extract,
-  or any new bootstrap app to secure-install.sh.
+  Add a third-party desktop app or CLI to dotfiles secure-install using the
+  existing download, verify, /opt or /usr/local/bin, register_package pattern.
+  Use when the user asks to add RemNote, Todoist, Nextcloud, Betterbird, Proton
+  Pass, Proton Drive, pass-cli, an AppImage, a GitHub release binary, a .deb
+  extract, or any new bootstrap app to secure-install.
 ---
 
-# Add app to secure-install.sh
+# Add app to secure-install
 
-Edit only `secure-install.sh` unless Fish/env config is explicitly requested. Do not add AUR wrappers when the vendor publishes a direct Linux artifact. Do not use `dpkg` or `rpm` on Artix.
+Edit `secure-install/packages/<id>.sh` (and `secure-install/lib.sh` only if a new
+shared helper is needed). Do not add AUR wrappers when the vendor publishes a
+direct Linux artifact. Do not use `dpkg` or `rpm` on Artix. Do not edit the
+driver skip/only wiring; packages register themselves.
 
 ## Workflow
 
@@ -23,8 +26,10 @@ Edit only `secure-install.sh` unless Fish/env config is explicitly requested. Do
    - Always: non-empty, size floor (~10 MB for apps), magic (`ELF` or `!<arch>` for `.deb`)
    - If the vendor publishes SHA-256/SHA-512 next to the file: **require it**
    - If they only publish `.asc`: GPG verify in a throwaway `GNUPGHOME`, **pin the fingerprint** in the script
-5. Install, add `--skip-<name>`, wire `usage()`, `main` `case`, and the call in `main`.
-6. `bash -n secure-install.sh`.
+5. Copy a similar file under `secure-install/packages/` (Todoist AppImage, Proton Drive CLI, Proton Pass `.deb`, Betterbird tarball, Nextcloud GPG). Add `register_package` with a kebab-case id, an order between existing neighbors (gaps of 10), a short description, and the `install_*` function name:
+   `register_package myapp 95 "My App" install_myapp`
+6. `bash -n secure-install.sh secure-install/lib.sh secure-install/packages/<id>.sh`
+7. Confirm `./secure-install.sh --list` shows the new id. Install with `./secure-install.sh <id>`.
 
 ## Where files go
 
@@ -43,12 +48,14 @@ Write `/usr/share/applications/<name>.desktop`. Electron AppImages: `Exec=... --
 
 ## Script shape
 
-Copy an existing installer in this file (Todoist AppImage, Proton Drive CLI, Proton Pass `.deb`, Betterbird tarball, Nextcloud GPG). Required pieces:
+Required pieces in `secure-install/packages/<id>.sh`:
 
-- `SKIP_<NAME>=false` and `--skip-<kebab-name>`
+- `register_package <id> <order> "<description>" install_<name>`
 - `run_step` for download/install; record `FAIL` and continue unless `--stop-on-error`
 - temp files under `"$STATE_DIR"`; delete after successful install
-- reuse `download_url_to_file` (add `-A` only for endpoints that need it)
+- reuse `download_url_to_file` from `secure-install/lib.sh` (add `-A` only for endpoints that need it)
+
+The driver globs `secure-install/packages/*.sh`. No `--skip-<name>` flag, `usage()` line, or `main` case is needed. Users install one package with `./secure-install.sh <id>`.
 
 ## Do not
 

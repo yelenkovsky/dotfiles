@@ -49,6 +49,7 @@ link_if_present ".config/Cursor/settings.json" "$HOME/.config/Cursor/User/settin
 link_if_present ".config/Cursor/keybindings.json" "$HOME/.config/Cursor/User/keybindings.json"
 link_if_present ".config/Cursor/snippets" "$HOME/.config/Cursor/User/snippets"
 link_if_present ".cursor/skills/add-secure-install-app" "$HOME/.cursor/skills/add-secure-install-app"
+link_if_present ".cursor/skills/add-secure-install-app" "$HOME/.agents/skills/add-secure-install-app"
 if [ -f "$DOTFILES_DIR/.config/Cursor/extensions.txt" ]; then
     echo "Extension list found (install from Cursor marketplace as needed)"
 fi
