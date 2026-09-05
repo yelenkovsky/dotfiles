@@ -31,15 +31,17 @@ extract_remnote_icon() {
   mkdir -p "$REMNOTE_ICON_DIR"
   (
     cd "$REMNOTE_ICON_DIR"
-    "$REMNOTE_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/512x512/apps/*' >/dev/null 2>&1 || true
-    "$REMNOTE_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/256x256/apps/*' >/dev/null 2>&1 || true
+    # RemNote ships the 512px PNG only under hicolor/0x0, not 512x512.
+    "$REMNOTE_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/*/apps/*' >/dev/null 2>&1 || true
+    "$REMNOTE_DOWNLOAD" --appimage-extract 'usr/share/pixmaps/*' >/dev/null 2>&1 || true
     "$REMNOTE_DOWNLOAD" --appimage-extract '*.png' >/dev/null 2>&1 || true
   )
 
-  icon="$(find "$REMNOTE_ICON_DIR" -type f -name '*.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  icon="$(find -L "$REMNOTE_ICON_DIR" -type f -name '*.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
 
   if [ -n "$icon" ] && [ -f "$icon" ]; then
     sudo install -D -m 644 "$icon" /usr/share/pixmaps/remnote.png
+    sudo install -D -m 644 "$icon" /usr/share/icons/hicolor/512x512/apps/remnote.png
     log "Installed RemNote icon from AppImage: $icon"
     return 0
   fi
