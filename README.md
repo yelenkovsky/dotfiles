@@ -13,7 +13,7 @@ chmod +x install.sh secure-install.sh setup/*.sh
 ./secure-install.sh --yes   # all packages
 ./secure-install.sh --list  # named targets (remnote, desktop, aur, …)
 ./secure-install.sh remnote # one vendor app; groups work the same way
-./secure-install.sh waydroid # Android container + ARM translation layer
+./secure-install.sh audiorelay # stream audio between phone and PC
 ./install.sh                # symlink configs into $HOME
 ```
 
