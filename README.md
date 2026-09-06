@@ -34,7 +34,6 @@ chmod +x install.sh secure-install.sh setup/*.sh
 
 ## Extra setup
 
-- `setup/artix-dinit-audio.sh` — PipeWire on Artix + dinit
 - `setup/setup-wireshark.sh` — capture group permissions (does not install Wireshark)
 
 ## Updating

@@ -165,8 +165,12 @@ install_mullvad_files() {
     return 1
   fi
 
+  # A running mullvad-gui keeps its inode mapped, so in-place cp fails with
+  # ETXTBSY and leaves a mixed Electron tree (V8 binary vs snapshot mismatch).
+  pkill -f '/opt/Mullvad VPN/mullvad-gui' >/dev/null 2>&1 || true
+  sudo rm -rf "$MULLVAD_INSTALL_DIR"
   sudo mkdir -p "$MULLVAD_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$MULLVAD_INSTALL_DIR"/
+  sudo cp -a "$appdir"/. "$MULLVAD_INSTALL_DIR"/ || return 1
   sudo chmod 755 "$MULLVAD_INSTALL_DIR/mullvad-vpn"
 
   for bin in mullvad mullvad-daemon mullvad-exclude mullvad-problem-report; do
@@ -231,6 +235,11 @@ EOF
     sudo systemctl enable mullvad-daemon.service
     sudo systemctl enable mullvad-early-boot-blocking.service
     sudo systemctl restart mullvad-daemon.service || log "Failed to restart mullvad-daemon.service"
+  fi
+
+  if command -v systemd-run >/dev/null 2>&1 && [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+    systemd-run --user --collect /usr/local/bin/mullvad-vpn >/dev/null \
+      || log "Failed to restart Mullvad GUI"
   fi
 
   rm -rf "$work" "$MULLVAD_DEB" "$MULLVAD_SIG" "$MULLVAD_GPG_KEY" "$MULLVAD_GPG_HOME"
