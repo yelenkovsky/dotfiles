@@ -39,3 +39,7 @@ chmod +x install.sh secure-install.sh setup/*.sh
 ## Updating
 
 These files are the copies that `$HOME` should symlink to. Edit them here (or via the home symlink), then commit in this repository.
+
+## License
+
+[MIT](LICENSE)
