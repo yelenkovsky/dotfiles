@@ -1,4 +1,4 @@
-register_package mullvad 200 "Mullvad VPN" install_mullvad
+register_package mullvad 200 "Mullvad VPN (daemon, CLI, GUI)" install_mullvad
 
 # Newest desktop linux amd64 .deb (stable or beta; not arm64, not rpm, not
 # android). Website latest-beta returns HTML to non-wget clients.
@@ -130,6 +130,43 @@ verify_mullvad_signature() {
   return 0
 }
 
+# Completions ship in the .deb. If this build omitted them, generate from the
+# installed CLI (clap; does not need the daemon).
+install_mullvad_cli_completions() {
+  local work="$1"
+  local src=""
+
+  sudo mkdir -p /usr/share/bash-completion/completions \
+    /usr/share/zsh/site-functions \
+    /usr/share/fish/vendor_completions.d
+
+  src="$(find "$work" \( -path '*/bash-completion/completions/mullvad' -o -path '*/bash-completion/completions/mullvad.bash' \) | head -1)"
+  if [ -n "$src" ]; then
+    sudo install -D -m 644 "$src" /usr/share/bash-completion/completions/mullvad
+  elif [ -x /usr/local/bin/mullvad ]; then
+    sudo /usr/local/bin/mullvad shell-completions bash /usr/share/bash-completion/completions
+    if [ -f /usr/share/bash-completion/completions/mullvad.bash ] \
+      && [ ! -f /usr/share/bash-completion/completions/mullvad ]; then
+      sudo mv /usr/share/bash-completion/completions/mullvad.bash \
+        /usr/share/bash-completion/completions/mullvad
+    fi
+  fi
+
+  src="$(find "$work" -path '*/zsh/site-functions/_mullvad' | head -1)"
+  if [ -n "$src" ]; then
+    sudo install -D -m 644 "$src" /usr/share/zsh/site-functions/_mullvad
+  elif [ -x /usr/local/bin/mullvad ]; then
+    sudo /usr/local/bin/mullvad shell-completions zsh /usr/share/zsh/site-functions
+  fi
+
+  src="$(find "$work" -path '*/fish/vendor_completions.d/mullvad.fish' | head -1)"
+  if [ -n "$src" ]; then
+    sudo install -D -m 644 "$src" /usr/share/fish/vendor_completions.d/mullvad.fish
+  elif [ -x /usr/local/bin/mullvad ]; then
+    sudo /usr/local/bin/mullvad shell-completions fish /usr/share/fish/vendor_completions.d
+  fi
+}
+
 install_mullvad_files() {
   local work="$STATE_DIR/mullvad-extract-$TIMESTAMP"
   local data=""
@@ -181,6 +218,8 @@ install_mullvad_files() {
   if [ -f /usr/local/bin/mullvad-exclude ]; then
     sudo chmod u+s /usr/local/bin/mullvad-exclude
   fi
+
+  install_mullvad_cli_completions "$work"
 
   sudo tee /usr/local/bin/mullvad-vpn >/dev/null <<EOF
 #!/bin/bash
