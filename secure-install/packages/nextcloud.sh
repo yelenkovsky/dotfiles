@@ -123,14 +123,22 @@ install_nextcloud_files() {
   # self-update, so the installing user owns /opt/nextcloud.
   sudo chown -R "$owner:$group" "$NEXTCLOUD_INSTALL_DIR"
   sudo chmod u+rwX "$NEXTCLOUD_INSTALL_DIR" "$NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME"
-  sudo ln -sfn "$NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME" /usr/local/bin/nextcloud
+  # Omarchy/Hyprland sets QT_QPA_PLATFORM=wayland;xcb. The AppImage does not
+  # ship a Wayland Qt plugin, so the client starts without a tray icon.
+  sudo tee /usr/local/bin/nextcloud >/dev/null <<EOF
+#!/bin/bash
+export QT_QPA_PLATFORM=xcb
+export DESKTOPINTEGRATION=false
+exec $NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/nextcloud
   sudo tee /usr/share/applications/nextcloud.desktop >/dev/null <<EOF
 [Desktop Entry]
 Type=Application
 Name=Nextcloud Desktop
 GenericName=Folder Sync
 Comment=Nextcloud desktop synchronization client
-Exec=$NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME %u
+Exec=/usr/local/bin/nextcloud %u
 Icon=Nextcloud
 Terminal=false
 Categories=Utility;Network;FileTransfer;
@@ -140,6 +148,26 @@ StartupWMClass=Nextcloud
 SingleMainWindow=true
 EOF
   sudo chmod 644 /usr/share/applications/nextcloud.desktop
+  mkdir -p "$HOME/.config/autostart"
+  cat >"$HOME/.config/autostart/Nextcloud.desktop" <<EOF
+[Desktop Entry]
+Name=Nextcloud
+GenericName=File Synchronizer
+Exec=/usr/local/bin/nextcloud --background
+Terminal=false
+Icon=Nextcloud
+Categories=Network
+Type=Application
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+EOF
+  mkdir -p "$HOME/.config/systemd/user/app-Nextcloud@autostart.service.d"
+  cat >"$HOME/.config/systemd/user/app-Nextcloud@autostart.service.d/xcb.conf" <<'EOF'
+[Service]
+Environment=QT_QPA_PLATFORM=xcb
+Environment=DESKTOPINTEGRATION=false
+EOF
+  systemctl --user daemon-reload >/dev/null 2>&1 || true
   extract_nextcloud_icon
   rm -rf "$NEXTCLOUD_ICON_DIR" "$NEXTCLOUD_DOWNLOAD" "$NEXTCLOUD_SIG" "$NEXTCLOUD_GPG_KEY" "$NEXTCLOUD_GPG_HOME"
 }
