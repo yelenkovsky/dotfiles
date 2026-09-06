@@ -6,11 +6,22 @@ PACMAN_DESKTOP_PACKAGES=(
   gparted
   # kdeconnect
   # kleopatra
+  7zip
+  arj
+  ark
+  kde-cli-tools
+  kdiff3
+  keditbookmarks
+  kio-extras
   kompare
+  konsole
   krename
   krusader
+  lhasa
   qbittorrent
   remmina
+  unace
+  unarj
   unrar
   vlc
   vlc-plugins-all
