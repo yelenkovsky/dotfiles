@@ -9,6 +9,7 @@ PACMAN_DESKTOP_PACKAGES=(
   7zip
   arj
   ark
+  dpkg
   kde-cli-tools
   kdiff3
   keditbookmarks
