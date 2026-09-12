@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Open a path (or $HOME) in Yazi via the Omarchy TUI terminal.
+
+set -euo pipefail
+
+target="${1:-$HOME}"
+target="${target#file://}"
+target="${target%%\?*}"
+
+if command -v python3 >/dev/null; then
+  target="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))' "$target")"
+fi
+
+if [[ -f $target ]]; then
+  target="$(dirname -- "$target")"
+fi
+if [[ ! -d $target ]]; then
+  target="$HOME"
+fi
+
+exec omarchy-launch-tui --app-id=org.omarchy.yazi yazi "$target"

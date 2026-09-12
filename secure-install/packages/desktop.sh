@@ -26,6 +26,9 @@ PACMAN_DESKTOP_PACKAGES=(
   unrar
   vlc
   vlc-plugins-all
+  yazi
+  resvg
+  chafa
 )
 
 install_desktop() {

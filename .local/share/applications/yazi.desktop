@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Yazi
+GenericName=File Manager
+Comment=Terminal file manager
+TryExec=yazi
+Exec=yazi-open %F
+Icon=yazi
+Terminal=false
+Type=Application
+Categories=System;FileTools;FileManager;Utility;
+MimeType=inode/directory;inode/mount-point;
+StartupWMClass=org.omarchy.yazi
+StartupNotify=false

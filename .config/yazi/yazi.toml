@@ -1,0 +1,8 @@
+[mgr]
+show_hidden = false
+sort_by = "natural"
+linemode = "size"
+
+[preview]
+max_width = 1000
+max_height = 1000

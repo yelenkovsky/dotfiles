@@ -20,6 +20,7 @@ if status is-interactive
     # API keys from Proton Pass (requires an active pass-cli session)
     set -x PROTON_PASS_SESSION_DIR ~/.local/share/proton-pass-session
     set -gx OPENROUTER_API_KEY (PROTON_PASS_AGENT_REASON="Load OpenRouter key into shell env" pass-cli item view --vault-name ai --item-title openrouter --field "API Key" 2>/dev/null)
+    set -gx OPENROUTER_BASE_URL https://eu.openrouter.ai/api/v1
     set -gx CURSOR_API_KEY (PROTON_PASS_AGENT_REASON="Load Cursor key into shell env" pass-cli item view --vault-name ai --item-title cursor --field "API Key" 2>/dev/null)
     set -gx TODOIST_API_KEY (PROTON_PASS_AGENT_REASON="Load Todoist key into shell env" pass-cli item view --vault-name ai --item-title todoist --field "API Key" 2>/dev/null)
     set -gx AZURE_SPEECH_KEY (PROTON_PASS_AGENT_REASON="Load Azure Speech key into shell env" pass-cli item view --vault-name ai --item-title azurespeech --field "API Key" 2>/dev/null)
