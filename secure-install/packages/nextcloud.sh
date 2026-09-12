@@ -123,6 +123,10 @@ install_nextcloud_files() {
   # self-update, so the installing user owns /opt/nextcloud.
   sudo chown -R "$owner:$group" "$NEXTCLOUD_INSTALL_DIR"
   sudo chmod u+rwX "$NEXTCLOUD_INSTALL_DIR" "$NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME"
+  # Earlier installs used a symlink at /usr/local/bin/nextcloud. tee follows
+  # that link and would overwrite the AppImage with this wrapper (infinite
+  # exec loop). Remove the path first so the wrapper is a real file.
+  sudo rm -f /usr/local/bin/nextcloud
   # Omarchy/Hyprland sets QT_QPA_PLATFORM=wayland;xcb. The AppImage does not
   # ship a Wayland Qt plugin, so the client starts without a tray icon.
   sudo tee /usr/local/bin/nextcloud >/dev/null <<EOF
