@@ -43,5 +43,6 @@
     "cursor.composer.codeBlockWordWrap": true,
     "explorer.confirmDragAndDrop": false,
     "workbench.reduceMotion": "off",
-    "cursor.general.emailPrivacyEnabled": true
+    "cursor.general.emailPrivacyEnabled": true,
+    "terminal.integrated.enableMultiLinePasteWarning": "never"
 }

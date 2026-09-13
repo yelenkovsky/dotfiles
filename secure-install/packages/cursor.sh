@@ -80,6 +80,10 @@ install_cursor_files() {
   sudo chmod u+rwX "$CURSOR_INSTALL_DIR" "$CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME"
   # Hyprland is not a desktop Electron auto-detects; pin gnome-libsecret
   # (same as chromium-flags.conf and Element on this machine).
+  # Remove any leftover symlink first: `tee` follows /usr/local/bin/cursor ->
+  # /opt/cursor/Cursor.AppImage and would overwrite the AppImage with this
+  # wrapper (which is how this install previously bricked Cursor).
+  sudo rm -f /usr/local/bin/cursor
   sudo tee /usr/local/bin/cursor >/dev/null <<EOF
 #!/bin/bash
 exec $CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME --password-store=gnome-libsecret --no-sandbox "\$@"
