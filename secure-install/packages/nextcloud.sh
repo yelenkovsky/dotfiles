@@ -152,12 +152,38 @@ StartupWMClass=Nextcloud
 SingleMainWindow=true
 EOF
   sudo chmod 644 /usr/share/applications/nextcloud.desktop
+  # Keep a user-owned wrapper so autostart still forces xcb if /usr/local/bin
+  # is left as a symlink to the AppImage (tee would follow that link).
+  mkdir -p "$HOME/.local/bin"
+  cat >"$HOME/.local/bin/nextcloud" <<EOF
+#!/bin/bash
+export QT_QPA_PLATFORM=xcb
+export DESKTOPINTEGRATION=false
+exec $NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME "\$@"
+EOF
+  chmod 755 "$HOME/.local/bin/nextcloud"
+  mkdir -p "$HOME/.local/share/applications"
+  cat >"$HOME/.local/share/applications/nextcloud.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Nextcloud Desktop
+GenericName=Folder Sync
+Comment=Nextcloud desktop synchronization client
+Exec=$HOME/.local/bin/nextcloud %u
+Icon=Nextcloud
+Terminal=false
+Categories=Utility;Network;FileTransfer;
+Keywords=Nextcloud;syncing;file;sharing;
+MimeType=application/vnd.nextcloud;x-scheme-handler/nc;
+StartupWMClass=Nextcloud
+SingleMainWindow=true
+EOF
   mkdir -p "$HOME/.config/autostart"
   cat >"$HOME/.config/autostart/Nextcloud.desktop" <<EOF
 [Desktop Entry]
 Name=Nextcloud
 GenericName=File Synchronizer
-Exec=/usr/local/bin/nextcloud --background
+Exec=$HOME/.local/bin/nextcloud --background
 Terminal=false
 Icon=Nextcloud
 Categories=Network
