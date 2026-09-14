@@ -162,14 +162,23 @@ install_package_group() {
 download_url_to_file() {
   local dest="$1"
   local url="$2"
+  local user_agent="${3-}"
 
   if command -v curl >/dev/null 2>&1; then
-    curl -fL --retry 3 --retry-delay 2 -o "$dest" "$url"
+    if [ -n "$user_agent" ]; then
+      curl -fL --retry 3 --retry-delay 2 -A "$user_agent" -o "$dest" "$url"
+    else
+      curl -fL --retry 3 --retry-delay 2 -o "$dest" "$url"
+    fi
     return
   fi
 
   if command -v wget >/dev/null 2>&1; then
-    wget --tries=3 -O "$dest" "$url"
+    if [ -n "$user_agent" ]; then
+      wget --tries=3 -U "$user_agent" -O "$dest" "$url"
+    else
+      wget --tries=3 -O "$dest" "$url"
+    fi
     return
   fi
 
