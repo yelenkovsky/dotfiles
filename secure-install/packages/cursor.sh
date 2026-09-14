@@ -141,8 +141,10 @@ extract_cursor_payload() {
 rewrite_extracted_desktops() {
   local file
 
+  # AppRun reads $ROOT/cursor.desktop and execs that Exec line. Leave it as
+  # `cursor` so PATH finds $ROOT/usr/bin/cursor. Rewriting it to this launcher
+  # made AppRun call /opt/cursor/launch in a loop, so Cursor never started.
   for file in \
-    "$ROOT/cursor.desktop" \
     "$ROOT/usr/share/applications/cursor.desktop" \
     "$ROOT/usr/share/applications/cursor-url-handler.desktop"
   do
@@ -153,6 +155,12 @@ rewrite_extracted_desktops() {
       -e 's|^Exec=cursor$|Exec=/opt/cursor/launch|' \
       "$file"
   done
+  if [ -f "$ROOT/cursor.desktop" ]; then
+    sed -i \
+      -e 's|^Exec=/opt/cursor/launch --new-window|Exec=cursor --new-window|' \
+      -e 's|^Exec=/opt/cursor/launch|Exec=cursor|' \
+      "$ROOT/cursor.desktop"
+  fi
 }
 
 if [ ! -x "$APP" ]; then
@@ -183,6 +191,11 @@ fi
 install_cursor_updater_shim
 rewrite_extracted_desktops
 
+if [ "${CURSOR_LAUNCHING:-}" = 1 ]; then
+  echo "Cursor launch wrapper called itself; starting the extracted binary" >&2
+  exec "$ROOT/usr/share/cursor/cursor" --password-store=gnome-libsecret --no-sandbox "$@"
+fi
+export CURSOR_LAUNCHING=1
 export APPIMAGE="$APP"
 export ARGV0="$APP"
 cd "$ROOT"
