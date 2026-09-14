@@ -7,8 +7,10 @@ CURSOR_DOWNLOAD_API_URL="https://cursor.com/api/download?platform=linux-x64&rele
 CURSOR_API_JSON="$STATE_DIR/cursor-download-$TIMESTAMP.json"
 CURSOR_INSTALL_DIR="/opt/cursor"
 CURSOR_APPIMAGE_NAME="Cursor.AppImage"
+CURSOR_CURRENT_DIR="$CURSOR_INSTALL_DIR/current"
+CURSOR_LAUNCH="$CURSOR_INSTALL_DIR/launch"
+CURSOR_UPDATER="$CURSOR_INSTALL_DIR/appimageupdatetool.AppImage"
 CURSOR_DOWNLOAD="$STATE_DIR/Cursor-$TIMESTAMP.AppImage"
-CURSOR_ICON_DIR="$STATE_DIR/cursor-icon-$TIMESTAMP"
 CURSOR_DOWNLOAD_URL=""
 
 download_cursor_api_json() {
@@ -42,19 +44,163 @@ download_cursor_appimage() {
   download_url_to_file "$CURSOR_DOWNLOAD" "$CURSOR_DOWNLOAD_URL"
 }
 
+# Cursor's in-app updater runs from the "quit" event:
+#   $resources/appimageupdatetool.AppImage -u "zsync|..." -O "$APPIMAGE"; $APPIMAGE &
+# If Cursor is a live FUSE AppImage, that updater path dies with the mount and
+# the trailing command relaunches the unchanged file (reload, same version).
+# Launch the extracted ELF with APPIMAGE still pointing at the writable
+# AppImage so resourcesPath and appimageupdatetool survive quit.
+write_cursor_launch() {
+  cat >"$CURSOR_LAUNCH" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+INSTALL=/opt/cursor
+APP="$INSTALL/Cursor.AppImage"
+ROOT="$INSTALL/current"
+STAMP="$INSTALL/.appimage-id"
+UPDATER_REAL="$INSTALL/appimageupdatetool.AppImage"
+UPDATER_NESTED="$ROOT/usr/share/cursor/resources/appimageupdatetool.AppImage"
+LOG_DIR="$INSTALL/logs"
+
+cursor_appimage_id() {
+  stat -c '%Y-%s' "$APP"
+}
+
+cursor_running_from_extract() {
+  local pid exe
+
+  for pid in /proc/[0-9]*; do
+    exe="$(readlink "$pid/exe" 2>/dev/null || true)"
+    if [ "$exe" = "$ROOT/usr/share/cursor/cursor" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+install_cursor_updater_shim() {
+  mkdir -p "$(dirname "$UPDATER_NESTED")" "$LOG_DIR"
+  cat >"$UPDATER_NESTED" <<'SH'
+#!/bin/bash
+set -euo pipefail
+REAL=/opt/cursor/appimageupdatetool.AppImage
+LOG=/opt/cursor/logs/appimage-update.log
+mkdir -p /opt/cursor/logs
+# Cursor spawns this from the quit event; give the old process a moment to
+# release the AppImage before zsync rewrites it.
+sleep 2
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send "Cursor" "Installing update…" || true
+fi
+{
+  echo "[$(date -Iseconds)] appimageupdatetool $*"
+  if [ ! -x "$REAL" ]; then
+    echo "missing $REAL"
+    exit 127
+  fi
+  export APPIMAGE_EXTRACT_AND_RUN=1
+  exec "$REAL" "$@"
+} >>"$LOG" 2>&1
+SH
+  chmod 755 "$UPDATER_NESTED"
+}
+
+extract_cursor_payload() {
+  local tmp id
+
+  if [ ! -x "$APP" ]; then
+    echo "Cursor AppImage is missing: $APP" >&2
+    exit 1
+  fi
+
+  tmp="$(mktemp -d "$INSTALL/extract.XXXXXX")"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" EXIT
+  (
+    cd "$tmp"
+    "$APP" --appimage-extract >/dev/null
+  )
+  if [ ! -x "$tmp/squashfs-root/usr/share/cursor/cursor" ] || [ ! -x "$tmp/squashfs-root/AppRun" ]; then
+    echo "Cursor AppImage extract did not contain usr/share/cursor/cursor" >&2
+    exit 1
+  fi
+  if [ -f "$tmp/squashfs-root/usr/share/cursor/resources/appimageupdatetool.AppImage" ]; then
+    cp -f "$tmp/squashfs-root/usr/share/cursor/resources/appimageupdatetool.AppImage" "$UPDATER_REAL"
+    chmod 755 "$UPDATER_REAL"
+  fi
+  rm -rf "$ROOT"
+  mv "$tmp/squashfs-root" "$ROOT"
+  trap - EXIT
+  rm -rf "$tmp"
+  id="$(cursor_appimage_id)"
+  printf '%s\n' "$id" >"$STAMP"
+  chmod u+rwX "$ROOT" "$APP" || true
+}
+
+rewrite_extracted_desktops() {
+  local file
+
+  for file in \
+    "$ROOT/cursor.desktop" \
+    "$ROOT/usr/share/applications/cursor.desktop" \
+    "$ROOT/usr/share/applications/cursor-url-handler.desktop"
+  do
+    [ -f "$file" ] || continue
+    sed -i \
+      -e 's|^Exec=/usr/share/cursor/cursor|Exec=/opt/cursor/launch|' \
+      -e 's|^Exec=cursor |Exec=/opt/cursor/launch |' \
+      -e 's|^Exec=cursor$|Exec=/opt/cursor/launch|' \
+      "$file"
+  done
+}
+
+if [ ! -x "$APP" ]; then
+  echo "Cursor AppImage is missing: $APP" >&2
+  exit 1
+fi
+
+if [ "${CURSOR_EXTRACT_ONLY:-0}" = 1 ]; then
+  if cursor_running_from_extract; then
+    echo "Not replacing $ROOT while Cursor is running from it; restart Cursor to finish installing" >&2
+  else
+    extract_cursor_payload
+  fi
+  install_cursor_updater_shim
+  rewrite_extracted_desktops
+  exit 0
+fi
+
+id="$(cursor_appimage_id)"
+if [ ! -x "$ROOT/AppRun" ] || [ ! -x "$ROOT/usr/share/cursor/cursor" ] || [ "$(cat "$STAMP" 2>/dev/null || true)" != "$id" ]; then
+  if cursor_running_from_extract; then
+    echo "Cursor payload is stale but still running; using the current extract" >&2
+  else
+    extract_cursor_payload
+  fi
+fi
+
+install_cursor_updater_shim
+rewrite_extracted_desktops
+
+export APPIMAGE="$APP"
+export ARGV0="$APP"
+cd "$ROOT"
+exec "$ROOT/AppRun" --password-store=gnome-libsecret --no-sandbox "$@"
+EOF
+  chmod 755 "$CURSOR_LAUNCH"
+}
+
 extract_cursor_icon() {
   local icon=""
 
-  mkdir -p "$CURSOR_ICON_DIR"
-  (
-    cd "$CURSOR_ICON_DIR"
-    "$CURSOR_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/512x512/apps/*' >/dev/null 2>&1 || true
-    "$CURSOR_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/256x256/apps/*' >/dev/null 2>&1 || true
-    "$CURSOR_DOWNLOAD" --appimage-extract 'usr/share/pixmaps/*' >/dev/null 2>&1 || true
-    "$CURSOR_DOWNLOAD" --appimage-extract '*.png' >/dev/null 2>&1 || true
-  )
-
-  icon="$(find "$CURSOR_ICON_DIR" -type f -name '*.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  icon="$(find "$CURSOR_CURRENT_DIR/usr/share/icons/hicolor/512x512" -type f -name '*.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  if [ -z "$icon" ] || [ ! -f "$icon" ]; then
+    icon="$(find "$CURSOR_CURRENT_DIR/usr/share/pixmaps" -type f -name '*.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  fi
+  if [ -z "$icon" ] || [ ! -f "$icon" ]; then
+    icon="$(find "$CURSOR_CURRENT_DIR" -type f -name '*.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
+  fi
 
   if [ -n "$icon" ] && [ -f "$icon" ]; then
     sudo install -D -m 644 "$icon" /usr/share/pixmaps/cursor.png
@@ -64,6 +210,79 @@ extract_cursor_icon() {
 
   log "Could not extract a Cursor icon; desktop entry will use the cursor icon name"
   return 0
+}
+
+# Point Hyprland Cursor shortcuts at the extracted launcher. `launch = "cursor"`
+# goes through uwsm PATH and can still hit an old AppImage wrapper.
+fix_cursor_hypr_bindings() {
+  local file="$HOME/.config/hypr/bindings.lua"
+  local before=""
+
+  if [ ! -f "$file" ]; then
+    return 0
+  fi
+
+  before="$(cat "$file")"
+  sed -i \
+    -e 's|launch = "cursor"|launch = "/opt/cursor/launch"|g' \
+    -e "s|launch = 'cursor'|launch = \"/opt/cursor/launch\"|g" \
+    -e 's|/opt/cursor/Cursor\.AppImage|/opt/cursor/launch|g' \
+    "$file"
+  if [ "$(cat "$file")" = "$before" ]; then
+    log "Hyprland Cursor binding already uses $CURSOR_LAUNCH"
+    return 0
+  fi
+
+  log "Updated Hyprland Cursor launch path in $file"
+  if command -v hyprctl >/dev/null 2>&1 && [ -n "${HYPRLAND_INSTANCE_SIGNATURE-}" ]; then
+    hyprctl reload >/dev/null
+    hyprctl configerrors
+  fi
+}
+
+fix_cursor_mimeapps() {
+  local file="$HOME/.config/mimeapps.list"
+
+  mkdir -p "$(dirname "$file")"
+  if command -v xdg-mime >/dev/null 2>&1; then
+    xdg-mime default cursor.desktop x-scheme-handler/cursor >/dev/null 2>&1 || true
+    xdg-mime default cursor.desktop application/x-cursor-workspace >/dev/null 2>&1 || true
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$file" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text() if path.exists() else "[Default Applications]\n"
+defaults = [
+    "x-scheme-handler/cursor=cursor.desktop",
+    "application/x-cursor-workspace=cursor.desktop",
+]
+added = [
+    "x-scheme-handler/cursor=cursor.desktop;",
+    "application/x-cursor-workspace=cursor.desktop;",
+]
+if "[Default Applications]" not in text:
+    text = "[Default Applications]\n" + text
+for line in defaults:
+    key = line.split("=", 1)[0]
+    if f"{key}=" not in text.split("[Added Associations]", 1)[0]:
+        text = text.replace("[Default Applications]\n", "[Default Applications]\n" + line + "\n", 1)
+if "[Added Associations]" not in text:
+    text = text.rstrip() + "\n\n[Added Associations]\n"
+assoc = text.split("[Added Associations]", 1)[-1]
+for line in added:
+    key = line.split("=", 1)[0]
+    if f"{key}=" not in assoc:
+        text = text.rstrip() + "\n" + line
+path.write_text(text if text.endswith("\n") else text + "\n")
+PY
+  fi
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
+    sudo update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+  fi
 }
 
 install_cursor_files() {
@@ -78,6 +297,9 @@ install_cursor_files() {
   # block self-update, so the installing user owns /opt/cursor.
   sudo chown -R "$owner:$group" "$CURSOR_INSTALL_DIR"
   sudo chmod u+rwX "$CURSOR_INSTALL_DIR" "$CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME"
+  mkdir -p "$CURSOR_INSTALL_DIR/logs"
+  write_cursor_launch
+  CURSOR_EXTRACT_ONLY=1 "$CURSOR_LAUNCH"
   # Hyprland is not a desktop Electron auto-detects; pin gnome-libsecret
   # (same as chromium-flags.conf and Element on this machine).
   # Remove any leftover symlink first: `tee` follows /usr/local/bin/cursor ->
@@ -86,24 +308,99 @@ install_cursor_files() {
   sudo rm -f /usr/local/bin/cursor
   sudo tee /usr/local/bin/cursor >/dev/null <<EOF
 #!/bin/bash
-exec $CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME --password-store=gnome-libsecret --no-sandbox "\$@"
+exec $CURSOR_LAUNCH "\$@"
 EOF
   sudo chmod 755 /usr/local/bin/cursor
   sudo tee /usr/share/applications/cursor.desktop >/dev/null <<EOF
 [Desktop Entry]
 Name=Cursor
 Comment=The AI Code Editor (nightly)
-Exec=$CURSOR_INSTALL_DIR/$CURSOR_APPIMAGE_NAME --password-store=gnome-libsecret --no-sandbox %U
+GenericName=Text Editor
+Exec=$CURSOR_LAUNCH %F
+TryExec=$CURSOR_LAUNCH
 Icon=cursor
 Terminal=false
 Type=Application
-Categories=Development;TextEditor;IDE;
+StartupNotify=false
 StartupWMClass=Cursor
-MimeType=x-scheme-handler/cursor;
+Categories=Development;TextEditor;IDE;
+MimeType=application/x-cursor-workspace;x-scheme-handler/cursor;
+Actions=new-empty-window;
+Keywords=cursor;
+
+[Desktop Action new-empty-window]
+Name=New Empty Window
+Exec=$CURSOR_LAUNCH --new-window %F
+Icon=cursor
 EOF
   sudo chmod 644 /usr/share/applications/cursor.desktop
+  sudo tee /usr/share/applications/cursor-url-handler.desktop >/dev/null <<EOF
+[Desktop Entry]
+Name=Cursor - URL Handler
+Comment=The AI Code Editor (nightly)
+Exec=$CURSOR_LAUNCH --open-url %U
+TryExec=$CURSOR_LAUNCH
+Icon=cursor
+Terminal=false
+Type=Application
+NoDisplay=true
+StartupNotify=true
+StartupWMClass=Cursor
+Categories=Utility;TextEditor;Development;IDE;
+MimeType=x-scheme-handler/cursor;
+Keywords=cursor;
+EOF
+  sudo chmod 644 /usr/share/applications/cursor-url-handler.desktop
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+  cat >"$HOME/.local/bin/cursor" <<EOF
+#!/bin/bash
+exec $CURSOR_LAUNCH "\$@"
+EOF
+  chmod 755 "$HOME/.local/bin/cursor"
+  cat >"$HOME/.local/share/applications/cursor.desktop" <<EOF
+[Desktop Entry]
+Name=Cursor
+Comment=The AI Code Editor (nightly)
+GenericName=Text Editor
+Exec=$CURSOR_LAUNCH %F
+TryExec=$CURSOR_LAUNCH
+Icon=cursor
+Terminal=false
+Type=Application
+StartupNotify=false
+StartupWMClass=Cursor
+Categories=Development;TextEditor;IDE;
+MimeType=application/x-cursor-workspace;x-scheme-handler/cursor;
+Actions=new-empty-window;
+Keywords=cursor;
+
+[Desktop Action new-empty-window]
+Name=New Empty Window
+Exec=$CURSOR_LAUNCH --new-window %F
+Icon=cursor
+EOF
+  chmod 644 "$HOME/.local/share/applications/cursor.desktop"
+  cat >"$HOME/.local/share/applications/cursor-url-handler.desktop" <<EOF
+[Desktop Entry]
+Name=Cursor - URL Handler
+Comment=The AI Code Editor (nightly)
+Exec=$CURSOR_LAUNCH --open-url %U
+TryExec=$CURSOR_LAUNCH
+Icon=cursor
+Terminal=false
+Type=Application
+NoDisplay=true
+StartupNotify=true
+StartupWMClass=Cursor
+Categories=Utility;TextEditor;Development;IDE;
+MimeType=x-scheme-handler/cursor;
+Keywords=cursor;
+EOF
+  chmod 644 "$HOME/.local/share/applications/cursor-url-handler.desktop"
   extract_cursor_icon
-  rm -rf "$CURSOR_ICON_DIR" "$CURSOR_DOWNLOAD" "$CURSOR_API_JSON"
+  fix_cursor_hypr_bindings
+  fix_cursor_mimeapps
+  rm -f "$CURSOR_DOWNLOAD" "$CURSOR_API_JSON"
 }
 
 install_cursor() {
