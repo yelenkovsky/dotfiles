@@ -14,7 +14,7 @@ CURSOR_DOWNLOAD="$STATE_DIR/Cursor-$TIMESTAMP.AppImage"
 CURSOR_DOWNLOAD_URL=""
 
 download_cursor_api_json() {
-  download_url_to_file "$CURSOR_API_JSON" "$CURSOR_DOWNLOAD_API_URL"
+  download_url_to_file "$CURSOR_API_JSON" "$CURSOR_DOWNLOAD_API_URL" "Mozilla/5.0"
 }
 
 # Match linux/x64 AppImage only (not arm64, not .deb/.rpm).
@@ -50,6 +50,12 @@ download_cursor_appimage() {
 # the trailing command relaunches the unchanged file (reload, same version).
 # Launch the extracted ELF with APPIMAGE still pointing at the writable
 # AppImage so resourcesPath and appimageupdatetool survive quit.
+#
+# appimageupdatetool also restores the old file when GPG validation fails.
+# Nightly AppImages are often unsigned, then a later build is signed (or
+# signed with a key the tool cannot check). zsync succeeds, then:
+#   Validation error: Bad signature / Restoring original file
+# The shim falls back to a full download of the same official URL.
 write_cursor_launch() {
   cat >"$CURSOR_LAUNCH" <<'EOF'
 #!/bin/bash
@@ -85,23 +91,131 @@ install_cursor_updater_shim() {
 #!/bin/bash
 set -euo pipefail
 REAL=/opt/cursor/appimageupdatetool.AppImage
+APP=/opt/cursor/Cursor.AppImage
+LAUNCH=/opt/cursor/launch
 LOG=/opt/cursor/logs/appimage-update.log
 mkdir -p /opt/cursor/logs
+
+log() {
+  printf '[%s] %s\n' "$(date -Iseconds)" "$*" >>"$LOG"
+}
+
+notify() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "Cursor" "$1" || true
+  fi
+}
+
+cursor_full_download() {
+  local url="$1"
+  local dest="$2"
+  local tmp size magic
+
+  tmp="$(mktemp "$dest.XXXXXX")"
+  # shellcheck disable=SC2064
+  trap "rm -f '$tmp'" RETURN
+
+  log "full download $url -> $dest"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL --retry 3 --retry-delay 2 -A "Mozilla/5.0" -o "$tmp" "$url"
+  elif command -v wget >/dev/null 2>&1; then
+    wget --tries=3 -U "Mozilla/5.0" -O "$tmp" "$url"
+  else
+    log "missing curl or wget"
+    return 127
+  fi
+
+  size="$(stat -c%s "$tmp")"
+  magic="$(head -c 4 "$tmp")"
+  if [ "$size" -lt 10000000 ] || [ "$magic" != $'\x7fELF' ]; then
+    log "full download is not a Cursor AppImage (${size} bytes)"
+    return 1
+  fi
+  chmod 755 "$tmp"
+  mv -f "$tmp" "$dest"
+  trap - RETURN
+  log "full download installed $dest ($size bytes)"
+}
+
+extract_after_update() {
+  nohup env CURSOR_EXTRACT_ONLY=1 "$LAUNCH" >>/opt/cursor/logs/extract-after-update.log 2>&1 &
+  disown || true
+}
+
 # Cursor spawns this from the quit event; give the old process a moment to
 # release the AppImage before zsync rewrites it.
 sleep 2
-if command -v notify-send >/dev/null 2>&1; then
-  notify-send "Cursor" "Installing update…" || true
+notify "Installing update…"
+log "appimageupdatetool $*"
+
+if [ ! -x "$REAL" ]; then
+  log "missing $REAL"
+  exit 127
 fi
-{
-  echo "[$(date -Iseconds)] appimageupdatetool $*"
-  if [ ! -x "$REAL" ]; then
-    echo "missing $REAL"
-    exit 127
-  fi
-  export APPIMAGE_EXTRACT_AND_RUN=1
-  exec "$REAL" "$@"
-} >>"$LOG" 2>&1
+
+update_info=""
+appimage="$APP"
+args=("$@")
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -u|--update-info)
+      update_info="${2-}"
+      shift 2
+      ;;
+    -O|--overwrite)
+      if [ -n "${2-}" ] && [ "${2#-}" = "$2" ]; then
+        appimage="$2"
+        shift 2
+      else
+        shift
+      fi
+      ;;
+    -*)
+      shift
+      ;;
+    *)
+      appimage="$1"
+      shift
+      ;;
+  esac
+done
+set -- "${args[@]}"
+
+export APPIMAGE_EXTRACT_AND_RUN=1
+runlog="$(mktemp /opt/cursor/logs/update-run.XXXXXX)"
+rc=0
+"$REAL" "$@" >"$runlog" 2>&1 || rc=$?
+cat "$runlog" >>"$LOG"
+if [ "$rc" -eq 0 ] && ! grep -q "Restoring original file" "$runlog"; then
+  rm -f "$runlog"
+  log "appimageupdatetool succeeded"
+  notify "Update installed"
+  extract_after_update
+  exit 0
+fi
+
+log "appimageupdatetool failed (rc=$rc); trying official full download"
+notify "Signature check failed; downloading full update…"
+url=""
+case "$update_info" in
+  'zsync|http://'*|'zsync|https://'*)
+    url="${update_info#zsync|}"
+    url="${url%.zsync}"
+    ;;
+esac
+rm -f "$runlog"
+if [ -z "$url" ]; then
+  log "no zsync URL in updater args; cannot fall back ($update_info)"
+  notify "Cursor update failed"
+  exit 1
+fi
+if ! cursor_full_download "$url" "$appimage"; then
+  notify "Cursor update failed"
+  exit 1
+fi
+notify "Update installed"
+extract_after_update
+exit 0
 SH
   chmod 755 "$UPDATER_NESTED"
 }
