@@ -6,3 +6,9 @@ linemode = "size"
 [preview]
 max_width = 1000
 max_height = 1000
+
+# Default play opener is mpv; open videos with VLC instead.
+[opener]
+play = [
+	{ run = 'vlc --started-from-file %s', orphan = true, desc = "VLC", for = "unix" },
+]
