@@ -133,6 +133,13 @@ install_nextcloud_files() {
 #!/bin/bash
 export QT_QPA_PLATFORM=xcb
 export DESKTOPINTEGRATION=false
+# Qt registers a StatusNotifier icon only after Omarchy's tray host is up.
+for _ in \$(seq 1 30); do
+  if busctl --user get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher org.kde.StatusNotifierWatcher IsStatusNotifierHostRegistered 2>/dev/null | grep -q 'b true'; then
+    break
+  fi
+  sleep 1
+done
 exec $NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME "\$@"
 EOF
   sudo chmod 755 /usr/local/bin/nextcloud
@@ -159,6 +166,13 @@ EOF
 #!/bin/bash
 export QT_QPA_PLATFORM=xcb
 export DESKTOPINTEGRATION=false
+# Qt registers a StatusNotifier icon only after Omarchy's tray host is up.
+for _ in \$(seq 1 30); do
+  if busctl --user get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher org.kde.StatusNotifierWatcher IsStatusNotifierHostRegistered 2>/dev/null | grep -q 'b true'; then
+    break
+  fi
+  sleep 1
+done
 exec $NEXTCLOUD_INSTALL_DIR/$NEXTCLOUD_APPIMAGE_NAME "\$@"
 EOF
   chmod 755 "$HOME/.local/bin/nextcloud"
@@ -193,9 +207,13 @@ X-GNOME-Autostart-enabled=true
 EOF
   mkdir -p "$HOME/.config/systemd/user/app-Nextcloud@autostart.service.d"
   cat >"$HOME/.config/systemd/user/app-Nextcloud@autostart.service.d/xcb.conf" <<'EOF'
+[Unit]
+After=graphical-session.target
+
 [Service]
 Environment=QT_QPA_PLATFORM=xcb
 Environment=DESKTOPINTEGRATION=false
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do busctl --user get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher org.kde.StatusNotifierWatcher IsStatusNotifierHostRegistered 2>/dev/null | grep -q "b true" && exit 0; sleep 1; done; exit 0'
 EOF
   systemctl --user daemon-reload >/dev/null 2>&1 || true
   extract_nextcloud_icon
