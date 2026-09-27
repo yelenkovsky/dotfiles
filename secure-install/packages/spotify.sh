@@ -18,6 +18,7 @@ SPOTIFY_RUNTIME_PACKAGES=(
   alsa-lib
   gtk3
   libayatana-appindicator
+  libayatana-indicator
   libsm
   libxss
   libxtst
