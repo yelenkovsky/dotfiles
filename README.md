@@ -1,8 +1,18 @@
 # Dotfiles
 
-Public Fish, Ghostty, Vim, and Cursor setup for a Linux desktop.
+Public Fish, Ghostty, Vim, and Cursor setup for a Linux desktop. Package installs and home-directory symlinks are separate scripts.
 
-![How these dotfiles work: clone the repo, then secure-install.sh for packages and install.sh to symlink configs into your home directory](docs/how-it-works.png)
+```mermaid
+flowchart LR
+  clone["Clone this repo<br/>configs and package scripts"]
+  secure["secure-install.sh<br/>one package, a group, or all"]
+  link["install.sh<br/>symlink configs into $HOME"]
+  system["System<br/>pacman, AUR, /opt, /usr/local/bin"]
+  home["Home<br/>fish, ghostty, vim, Cursor"]
+
+  clone --> secure --> system
+  clone --> link --> home
+```
 
 ## Install
 
@@ -13,11 +23,13 @@ chmod +x install.sh secure-install.sh setup/*.sh
 ./secure-install.sh --yes   # all packages
 ./secure-install.sh --list  # named targets (remnote, desktop, aur, …)
 ./secure-install.sh remnote # one vendor app; groups work the same way
-./secure-install.sh audiorelay # stream audio between phone and PC
+./secure-install.sh audiorelay
 ./install.sh                # symlink configs into $HOME
 ```
 
-`install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`. Vendor apps and pacman/AUR groups live in `secure-install/packages/`; `./secure-install.sh --help` shows `--only` / `--skip`.
+`install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`. It replaces an existing symlink, and moves a real file aside into `~/dotfiles-backup-<timestamp>/`.
+
+`secure-install.sh` loads every `secure-install/packages/*.sh`. Each script registers itself. Pacman groups (`core`, `desktop`, `util`, `fonts`, `gaming`) and the `aur` group install through pacman or yay. Vendor apps download an artifact, check it, then install under `/opt` or `/usr/local/bin`. `./secure-install.sh --help` shows `--only`, `--skip`, and `--dry-run`. Logs go to `~/.local/state/dotfiles-installer/`.
 
 ## What is linked
 
@@ -29,13 +41,19 @@ chmod +x install.sh secure-install.sh setup/*.sh
 | `.config/starship.toml` | Prompt |
 | `.config/ghostty` | Terminal |
 | `.config/eza` | `ls` replacement theme |
-| `.config/gh/config.yml` | GitHub CLI (no `hosts.yml`) |
+| `.config/gh/config.yml` | GitHub CLI settings. Account credentials stay in a local `hosts.yml` |
 | `.config/Cursor/` | Editor settings, keybindings, snippets |
-| `.cursor/skills/add-secure-install-app` | Cursor skill for adding apps to `secure-install/packages/` |
+| `.cursor/skills/add-secure-install-app` | Cursor skill for adding apps to `secure-install/packages/` (also linked at `~/.agents/skills/add-secure-install-app`) |
+
+Yazi config, Omarchy theme hooks, and `plasma-themes/` stay in the clone. Link those paths yourself when you want them in `$HOME`.
 
 ## Extra setup
 
-- `setup/setup-wireshark.sh` — capture group permissions (does not install Wireshark)
+Run these by hand when you need them.
+
+- `setup/setup-wireshark.sh` — capture group permissions. Install Wireshark separately
+- `setup/usb.sh` — format a removable drive as one FAT32 partition and mount it at `/mnt/usb`
+- `setup/usb-remount.sh` — remount that drive with user write permissions
 
 ## Updating
 
