@@ -44,5 +44,6 @@
     "explorer.confirmDragAndDrop": false,
     "workbench.reduceMotion": "off",
     "cursor.general.emailPrivacyEnabled": true,
-    "terminal.integrated.enableMultiLinePasteWarning": "never"
+    "terminal.integrated.enableMultiLinePasteWarning": "never",
+    "cursor.terminal.usePreviewBox": true
 }
