@@ -2,6 +2,7 @@ register_package aur 60 "AUR packages" install_aur
 
 AUR_PACKAGES=(
   masterpdfeditor-free
+  pbpctrl
   optimus-manager-git
   ttf-ms-fonts
   ttf-vista-fonts
