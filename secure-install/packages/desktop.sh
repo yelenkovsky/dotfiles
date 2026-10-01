@@ -9,6 +9,7 @@ PACMAN_DESKTOP_PACKAGES=(
   7zip
   arj
   ark
+  discord
   dpkg
   kde-cli-tools
   kdiff3
