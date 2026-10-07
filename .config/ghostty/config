@@ -1,4 +1,18 @@
-theme = Catppuccin Frappe
-font-family="Fira Code Nerd Font"
+theme = TokyoNight
+font-family = "FiraCode Nerd Font"
+font-size = 12
+adjust-cell-height = 10%
 command = /usr/bin/fish
 
+# Breathing room around the text
+window-padding-x = 14
+window-padding-y = 10
+window-padding-balance = true
+
+# Slight transparency (Hyprland blurs what's behind)
+background-opacity = 0.95
+
+# Cursor & mouse
+cursor-style = bar
+cursor-style-blink = false
+mouse-hide-while-typing = true

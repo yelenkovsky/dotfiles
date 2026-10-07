@@ -40,3 +40,6 @@ if status is-interactive
     # open
     alias sf="source ~/.config/fish/config.fish"
 end
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/xbloc/google-cloud-sdk/path.fish.inc' ]; . '/home/xbloc/google-cloud-sdk/path.fish.inc'; end
