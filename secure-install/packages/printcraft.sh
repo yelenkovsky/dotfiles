@@ -8,9 +8,15 @@ PRINTCRAFT_APPIMAGE_NAME="PrintCraft.AppImage"
 PRINTCRAFT_DOWNLOAD="$STATE_DIR/printcraft-$TIMESTAMP.AppImage"
 PRINTCRAFT_SUMS_FILE="$STATE_DIR/printcraft-$TIMESTAMP.SHA256SUMS.txt"
 PRINTCRAFT_ICON_DIR="$STATE_DIR/printcraft-icon-$TIMESTAMP"
+PRINTCRAFT_MODELS_DIR="$PRINTCRAFT_INSTALL_DIR/models"
+PRINTCRAFT_ATTRIBUTION="$STATE_DIR/printcraft-$TIMESTAMP-ATTRIBUTION.toml"
+PRINTCRAFT_MODELS_LIST="$STATE_DIR/printcraft-$TIMESTAMP-models.tsv"
+PRINTCRAFT_MODELS_STAGE="$STATE_DIR/printcraft-models-$TIMESTAMP"
 PRINTCRAFT_DOWNLOAD_URL=""
 PRINTCRAFT_SUMS_URL=""
+PRINTCRAFT_ATTRIBUTION_URL=""
 PRINTCRAFT_ASSET_NAME=""
+PRINTCRAFT_TAG=""
 
 resolve_printcraft_urls() {
   local json="$STATE_DIR/printcraft-releases-$TIMESTAMP.json"
@@ -76,13 +82,130 @@ PY
       ;;
   esac
 
+  PRINTCRAFT_TAG="${PRINTCRAFT_DOWNLOAD_URL#https://github.com/storytold/printcraft/releases/download/}"
+  PRINTCRAFT_TAG="${PRINTCRAFT_TAG%%/*}"
+  case "$PRINTCRAFT_TAG" in
+    v[0-9]*) ;;
+    *)
+      log "Could not resolve the PrintCraft release tag from $PRINTCRAFT_DOWNLOAD_URL"
+      return 1
+      ;;
+  esac
+
+  PRINTCRAFT_ATTRIBUTION_URL="https://raw.githubusercontent.com/storytold/printcraft/${PRINTCRAFT_TAG}/ATTRIBUTION.toml"
+  case "$PRINTCRAFT_ATTRIBUTION_URL" in
+    https://raw.githubusercontent.com/storytold/printcraft/v[0-9]*/ATTRIBUTION.toml) ;;
+    *)
+      log "Could not resolve PrintCraft ATTRIBUTION.toml"
+      return 1
+      ;;
+  esac
+
   log "PrintCraft AppImage: $PRINTCRAFT_DOWNLOAD_URL"
+  log "PrintCraft OCR models: $PRINTCRAFT_ATTRIBUTION_URL"
   return 0
 }
 
 download_printcraft_appimage() {
   download_url_to_file "$PRINTCRAFT_DOWNLOAD" "$PRINTCRAFT_DOWNLOAD_URL"
   download_url_to_file "$PRINTCRAFT_SUMS_FILE" "$PRINTCRAFT_SUMS_URL"
+}
+
+# The AppImage looks for text-detection.rten and text-recognition.rten via
+# PRINTCRAFT_MODELS. Those files are the `kind = "model"` rows in the release's
+# ATTRIBUTION.toml, the same ones `cargo xtask models` fetches.
+download_printcraft_models() {
+  local file=""
+  local url=""
+  local sha=""
+  local licence_url=""
+  local licence_sha=""
+
+  download_url_to_file "$PRINTCRAFT_ATTRIBUTION" "$PRINTCRAFT_ATTRIBUTION_URL"
+  python3 - "$PRINTCRAFT_ATTRIBUTION" "$PRINTCRAFT_MODELS_LIST" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+source, dest = sys.argv[1:]
+data = tomllib.loads(Path(source).read_text(encoding="utf-8"))
+rows = []
+for item in data.get("fetched", []):
+    if item.get("kind") != "model":
+        continue
+    file = item.get("file", "")
+    url = item.get("url", "")
+    sha = item.get("sha256", "").lower()
+    licence_url = item.get("licence_url", "")
+    licence_sha = item.get("licence_sha256", "").lower()
+    if "/" in file or file in ("", ".", "..") or not file.endswith(".rten"):
+        raise SystemExit(f"refusing model filename {file!r}")
+    if not url.startswith("https://") or not licence_url.startswith("https://"):
+        raise SystemExit(f"refusing non-https model URL for {file}")
+    if len(sha) != 64 or len(licence_sha) != 64 or any(c not in "0123456789abcdef" for c in sha + licence_sha):
+        raise SystemExit(f"bad SHA-256 for {file}")
+    rows.append("\t".join((file, url, sha, licence_url, licence_sha)))
+
+needed = {"text-detection.rten", "text-recognition.rten"}
+got = {row.split("\t", 1)[0] for row in rows}
+missing = needed - got
+if missing:
+    raise SystemExit("ATTRIBUTION.toml is missing OCR models: " + ", ".join(sorted(missing)))
+Path(dest).write_text("\n".join(rows) + "\n", encoding="utf-8")
+PY
+
+  mkdir -p "$PRINTCRAFT_MODELS_STAGE"
+  while IFS=$'\t' read -r file url sha licence_url licence_sha; do
+    [ -n "$file" ] || continue
+    download_url_to_file "$PRINTCRAFT_MODELS_STAGE/$file" "$url"
+    download_url_to_file "$PRINTCRAFT_MODELS_STAGE/${file}.LICENCE.txt" "$licence_url"
+  done < "$PRINTCRAFT_MODELS_LIST"
+}
+
+verify_printcraft_models() {
+  local file=""
+  local url=""
+  local sha=""
+  local licence_url=""
+  local licence_sha=""
+  local actual=""
+  local count=0
+
+  if [ ! -s "$PRINTCRAFT_MODELS_LIST" ]; then
+    log "PrintCraft model list is missing"
+    return 1
+  fi
+
+  while IFS=$'\t' read -r file url sha licence_url licence_sha; do
+    [ -n "$file" ] || continue
+    count=$((count + 1))
+    if [ ! -s "$PRINTCRAFT_MODELS_STAGE/$file" ]; then
+      log "Downloaded PrintCraft model is empty: $file"
+      return 1
+    fi
+    actual="$(sha256sum "$PRINTCRAFT_MODELS_STAGE/$file" | awk '{ print $1 }')"
+    if [ "$actual" != "$sha" ]; then
+      log "SHA-256 mismatch for $file (expected $sha, got $actual)"
+      return 1
+    fi
+    if [ ! -s "$PRINTCRAFT_MODELS_STAGE/${file}.LICENCE.txt" ]; then
+      log "Downloaded PrintCraft model licence is empty: $file"
+      return 1
+    fi
+    actual="$(sha256sum "$PRINTCRAFT_MODELS_STAGE/${file}.LICENCE.txt" | awk '{ print $1 }')"
+    if [ "$actual" != "$licence_sha" ]; then
+      log "SHA-256 mismatch for ${file}.LICENCE.txt (expected $licence_sha, got $actual)"
+      return 1
+    fi
+    log "Verified PrintCraft model $file"
+  done < "$PRINTCRAFT_MODELS_LIST"
+
+  if [ "$count" -lt 1 ]; then
+    log "PrintCraft ATTRIBUTION.toml listed no OCR models"
+    return 1
+  fi
+
+  return 0
 }
 
 verify_printcraft_published_sha256() {
@@ -178,12 +301,21 @@ install_printcraft_files() {
 
   group="$(id -gn "$owner")"
 
-  sudo mkdir -p "$PRINTCRAFT_INSTALL_DIR"
+  sudo mkdir -p "$PRINTCRAFT_INSTALL_DIR" "$PRINTCRAFT_MODELS_DIR"
   sudo install -D -m 755 "$PRINTCRAFT_DOWNLOAD" "$PRINTCRAFT_INSTALL_DIR/$PRINTCRAFT_APPIMAGE_NAME"
+  sudo cp -a "$PRINTCRAFT_MODELS_STAGE"/. "$PRINTCRAFT_MODELS_DIR"/
   # User owns the tree so a later in-app replace does not need root.
   sudo chown -R "$owner:$group" "$PRINTCRAFT_INSTALL_DIR"
   sudo chmod u+rwX "$PRINTCRAFT_INSTALL_DIR" "$PRINTCRAFT_INSTALL_DIR/$PRINTCRAFT_APPIMAGE_NAME"
-  sudo ln -sfn "$PRINTCRAFT_INSTALL_DIR/$PRINTCRAFT_APPIMAGE_NAME" /usr/local/bin/printcraft
+  # The mounted AppImage binary does not see files beside the .AppImage.
+  # Remove any previous path first so tee cannot follow a symlink into it.
+  sudo rm -f /usr/local/bin/printcraft
+  sudo tee /usr/local/bin/printcraft >/dev/null <<EOF
+#!/bin/bash
+export PRINTCRAFT_MODELS="$PRINTCRAFT_MODELS_DIR"
+exec "$PRINTCRAFT_INSTALL_DIR/$PRINTCRAFT_APPIMAGE_NAME" "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/printcraft
 
   sudo tee /usr/share/applications/printcraft.desktop >/dev/null <<EOF
 [Desktop Entry]
@@ -192,8 +324,8 @@ Type=Application
 Name=PrintCraft
 GenericName=PDF Editor
 Comment=Read, organize, combine, split and secure PDFs
-Exec=$PRINTCRAFT_INSTALL_DIR/$PRINTCRAFT_APPIMAGE_NAME %F
-TryExec=$PRINTCRAFT_INSTALL_DIR/$PRINTCRAFT_APPIMAGE_NAME
+Exec=/usr/local/bin/printcraft %F
+TryExec=/usr/local/bin/printcraft
 Icon=printcraft
 Terminal=false
 StartupNotify=true
@@ -207,7 +339,8 @@ EOF
     sudo update-desktop-database /usr/share/applications || true
   fi
   extract_printcraft_icon
-  rm -rf "$PRINTCRAFT_ICON_DIR" "$PRINTCRAFT_DOWNLOAD" "$PRINTCRAFT_SUMS_FILE"
+  rm -rf "$PRINTCRAFT_ICON_DIR" "$PRINTCRAFT_DOWNLOAD" "$PRINTCRAFT_SUMS_FILE" \
+    "$PRINTCRAFT_ATTRIBUTION" "$PRINTCRAFT_MODELS_LIST" "$PRINTCRAFT_MODELS_STAGE"
 }
 
 install_printcraft() {
@@ -237,7 +370,28 @@ install_printcraft() {
   fi
 
   chmod 700 "$PRINTCRAFT_DOWNLOAD"
-  log "Verified PrintCraft AppImage; installing to $PRINTCRAFT_INSTALL_DIR"
+  log "Verified PrintCraft AppImage"
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    FAILURES+=("download PrintCraft OCR models (missing required command: python3)")
+    record_status "FAIL" "download PrintCraft OCR models"
+    log "Skipping PrintCraft OCR models because python3 is not installed"
+    return 0
+  fi
+
+  run_step "download PrintCraft OCR models" download_printcraft_models
+
+  if [ ! -s "$PRINTCRAFT_MODELS_LIST" ]; then
+    return 0
+  fi
+
+  if ! verify_printcraft_models; then
+    FAILURES+=("verify PrintCraft OCR models")
+    record_status "FAIL" "verify PrintCraft OCR models"
+    return 0
+  fi
+
+  log "Verified PrintCraft OCR models; installing to $PRINTCRAFT_INSTALL_DIR"
 
   run_step "install PrintCraft AppImage" install_printcraft_files
 }
