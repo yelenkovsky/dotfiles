@@ -29,7 +29,7 @@ chmod +x install.sh secure-install.sh setup/*.sh
 
 `install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`. It replaces an existing symlink, and moves a real file aside into `~/dotfiles-backup-<timestamp>/`.
 
-`secure-install.sh` loads every `secure-install/packages/*.sh`. Each script registers itself. Package groups (`core`, `desktop`, `util`, `fonts`, `gaming`, `aur`) install through pacman or yay. Gaming also installs `nvidia-prime` and the AUR packages `mangojuice` and `proton-cachyos-slr`. Vendor apps download an artifact, check it, then install under `/opt` or `/usr/local/bin`. `./secure-install.sh --help` shows `--only`, `--skip`, and `--dry-run`. Logs go to `~/.local/state/dotfiles-installer/`.
+`secure-install.sh` loads every `secure-install/packages/*.sh`. Each script registers itself. Package groups (`core`, `desktop`, `util`, `fonts`, `gaming`, `aur`) install through pacman or yay. Gaming also installs `nvidia-prime`, the AUR package `mangojuice`, and the Proton-CachyOS Steam Linux Runtime x86-64-v3 build. Vendor apps download an artifact, check it, then install under `/opt` or `/usr/local/bin`. `./secure-install.sh --help` shows `--only`, `--skip`, and `--dry-run`. Logs go to `~/.local/state/dotfiles-installer/`.
 
 ## What is linked
 
