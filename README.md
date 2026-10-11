@@ -43,7 +43,7 @@ chmod +x install.sh secure-install.sh setup/*.sh
 | `.config/eza` | `ls` replacement theme |
 | `.config/gh/config.yml` | GitHub CLI settings. Account credentials stay in a local `hosts.yml` |
 | `.config/Cursor/` | Editor settings, keybindings, snippets |
-| `.cursor/skills/add-secure-install-app` | Cursor skill for adding apps to `secure-install/packages/` (also linked at `~/.agents/skills/add-secure-install-app`) |
+| `.claude/skills/add-secure-install-app` | Claude Code skill for adding apps to `secure-install/packages/`, linked at `~/.claude/skills/add-secure-install-app` |
 
 Yazi config, Omarchy theme hooks, and `plasma-themes/` stay in the clone. Link those paths yourself when you want them in `$HOME`.
 
