@@ -326,6 +326,7 @@ main() {
     CURRENT_PACKAGE="$id"
     "${PACKAGE_INSTALLER[$id]}"
     CURRENT_PACKAGE=""
+    reopen_closed_apps
 
     fingerprint="$(cat "$FINGERPRINT_DIR/$id" 2>/dev/null || true)"
     if [ "$DRY_RUN" = false ] && [ "${#FAILURES[@]}" -eq "$failures_before" ] && [ -n "$fingerprint" ]; then

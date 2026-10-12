@@ -300,8 +300,83 @@ stop_app_processes() {
   fi
 }
 
+# Apps closed for the current package, reopened by reopen_closed_apps once it
+# is installed: systemd units to start again, and commands to run again.
+REOPEN_LABELS=()
+REOPEN_UNITS=()
+REOPEN_COMMANDS=()
+
+# Note how each running app was started, before it is closed. A process whose
+# parent is not part of the app is a launch point: if it belongs to a systemd
+# service (e.g. an XDG autostart unit) that service is restarted; otherwise
+# (launcher, keybinding, terminal) its original command line is run again.
+remember_app_launches() {
+  local label="$1"
+  shift
+  local -A app=()
+  local pid ppid unit cmd arg
+
+  for pid in $(app_process_pids "$@"); do
+    app[$pid]=1
+  done
+
+  for pid in "${!app[@]}"; do
+    read -r _ _ _ ppid _ <"/proc/$pid/stat" 2>/dev/null || continue
+    [ -z "${app[$ppid]+x}" ] || continue
+
+    unit="$(sed -n 's|^0::.*/||p' "/proc/$pid/cgroup" 2>/dev/null)"
+    case "$unit" in
+      *.service)
+        [[ " ${REOPEN_UNITS[*]} " == *" $unit "* ]] || REOPEN_UNITS+=("$unit")
+        ;;
+      *)
+        cmd=""
+        while IFS= read -r -d '' arg; do
+          printf -v cmd '%s%q ' "$cmd" "$arg"
+        done <"/proc/$pid/cmdline" 2>/dev/null
+        [ -n "$cmd" ] && REOPEN_COMMANDS+=("$cmd")
+        ;;
+    esac
+  done
+
+  if [ "${#REOPEN_UNITS[@]}" -gt 0 ] || [ "${#REOPEN_COMMANDS[@]}" -gt 0 ]; then
+    REOPEN_LABELS+=("$label")
+  fi
+}
+
+# Start again what close_running_app closed for this package, whether its
+# install succeeded or not (a failed replace keeps the old version runnable).
+reopen_closed_apps() {
+  local unit cmd
+  local -a argv
+
+  if [ "${#REOPEN_LABELS[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  log "Reopening ${REOPEN_LABELS[*]}"
+  for unit in "${REOPEN_UNITS[@]}"; do
+    systemctl --user start "$unit" || log "Could not restart $unit"
+  done
+  for cmd in "${REOPEN_COMMANDS[@]}"; do
+    eval "argv=($cmd)"
+    if command -v uwsm-app >/dev/null 2>&1; then
+      systemd-run --user --quiet --collect \
+        --property=StandardOutput=null --property=StandardError=null \
+        uwsm-app -- "${argv[@]}" || log "Could not reopen: $cmd"
+    else
+      setsid -f "${argv[@]}" </dev/null >/dev/null 2>&1 || log "Could not reopen: $cmd"
+    fi
+  done
+
+  REOPEN_LABELS=()
+  REOPEN_UNITS=()
+  REOPEN_COMMANDS=()
+}
+
 # Installers call this right before their install step, after the download has
-# been verified, so a failed download never closes anything.
+# been verified, so a failed download never closes anything. Whatever it
+# closes is reopened after the package finishes (see reopen_closed_apps).
 close_running_app() {
   local label="$1"
   shift
@@ -310,6 +385,10 @@ close_running_app() {
 
   if [ -z "$(app_process_pids "$@")" ] && ! app_hosts_installer "$@"; then
     return 0
+  fi
+
+  if [ "$DRY_RUN" != true ] && ! app_hosts_installer "$@"; then
+    remember_app_launches "$label" "$@"
   fi
 
   run_step "close running $label" stop_app_processes "$label" "$@"
