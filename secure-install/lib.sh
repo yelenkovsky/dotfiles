@@ -394,6 +394,28 @@ close_running_app() {
   run_step "close running $label" stop_app_processes "$label" "$@"
 }
 
+restore_executable_bits() {
+  local dir="$1"
+  local file
+  local -a programs=()
+
+  if ! command -v file >/dev/null 2>&1; then
+    log "file(1) is missing; not checking $dir for programs without execute permission"
+    return 0
+  fi
+
+  mapfile -t programs < <(
+    sudo find "$dir" -type f ! -perm -u+x ! -name '*.so' ! -name '*.so.*' -print0 \
+      | xargs -0 -r file -N -F $'\t' \
+      | awk -F '\t' '$2 ~ /ELF .*executable/ { print $1 }'
+  )
+
+  for file in "${programs[@]}"; do
+    sudo chmod 755 "$file" || return 1
+    log "Marked ${file#"$dir"/} executable (the archive stored it without permissions)"
+  done
+}
+
 # Install an extracted app tree into dest without ever leaving it half-copied:
 # copy into dest.new, swap it in with two renames on the same filesystem, and
 # only then delete the old tree. Any failure before the swap leaves the old
@@ -420,6 +442,15 @@ replace_install_tree() {
       sudo rm -rf "$stage"
       return 1
     fi
+  fi
+
+  # Zip entries stored without Unix permissions extract as 0644, programs
+  # included (Grayjay's cef/justcefnative did, and Grayjay could not start).
+  # Mark every ELF executable as one; shared libraries do not need it.
+  if ! restore_executable_bits "$stage"; then
+    log "Could not mark the programs in $stage executable; keeping the current install"
+    sudo rm -rf "$stage"
+    return 1
   fi
 
   if [ -e "$dest" ] && ! sudo mv "$dest" "$old"; then
