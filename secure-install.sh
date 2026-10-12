@@ -13,6 +13,23 @@ DRY_RUN=false
 STOP_ON_ERROR=false
 ASSUME_YES=false
 SKIP_PACKAGES=()
+NOTIFY=false
+MARK_CURRENT=false
+
+# Package scripts build their download paths from STATE_DIR when they load,
+# so check mode has to pick its scratch directory before they are sourced.
+RECORD_DIR="$STATE_DIR"
+CHECK_MODE=false
+for arg in "$@"; do
+  [ "$arg" = --check ] && CHECK_MODE=true
+done
+if [ "$CHECK_MODE" = true ]; then
+  mkdir -p "$RECORD_DIR"
+  STATE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/secure-install-check.XXXXXX")"
+  trap 'rm -rf "$STATE_DIR"' EXIT
+  LOG_FILE="$RECORD_DIR/check.log"
+  STATUS_FILE="$STATE_DIR/check.status"
+fi
 
 # shellcheck source=secure-install/lib.sh
 source "$SCRIPT_DIR/secure-install/lib.sh"
@@ -32,6 +49,11 @@ Options:
   --skip NAME ...  Skip these packages
   --list           List package names
   --yes            Pass --noconfirm to pacman/yay and --yes to OMF
+  --check          Only report which apps have a newer release (no sudo,
+                   nothing downloaded or installed)
+  --notify         With --check, also send a desktop notification
+  --mark-current   With --check, record the latest release as installed
+                   (use once for apps installed before update tracking)
   -h, --help       Show this help text
 
 Examples:
@@ -40,6 +62,7 @@ Examples:
   $SCRIPT_NAME desktop aur
   $SCRIPT_NAME --only remnote cursor
   $SCRIPT_NAME --skip remnote slack
+  $SCRIPT_NAME --check
 
 Logs:
   Detailed log:  $LOG_FILE
@@ -92,6 +115,69 @@ selected_packages() {
   done < <(sorted_package_ids)
 }
 
+# Run the selected installers in check mode and compare what each would
+# download now with what was recorded at its last successful install.
+check_for_updates() {
+  local id current installed
+  local -a updates=() unknown=() failed=()
+
+  # Nothing in check mode may change the system. run_step already skips
+  # install steps; this catches any sudo an installer calls directly.
+  sudo() {
+    log "check mode: refused sudo $*"
+    return 1
+  }
+
+  printf '%-24s %s\n' "PACKAGE" "STATUS"
+  for id in "$@"; do
+    [ -n "${PACKAGE_ARTIFACT[$id]+x}" ] || continue
+
+    CURRENT_PACKAGE="$id"
+    # Installers print progress, curl meters and gpg chatter; keep that in the
+    # log so the terminal (and the timer's journal) only shows the table.
+    "${PACKAGE_INSTALLER[$id]}" >>"$LOG_FILE" 2>&1 || true
+    CURRENT_PACKAGE=""
+
+    current="$(cat "$FINGERPRINT_DIR/$id" 2>/dev/null || true)"
+    installed="$(installed_fingerprint "$id")"
+
+    if [ -z "$current" ]; then
+      failed+=("$id")
+      printf '%-24s %s\n' "$id" "check failed (see $LOG_FILE)"
+      continue
+    fi
+
+    if [ "$MARK_CURRENT" = true ]; then
+      record_installed_release "$id" "$current"
+      printf '%-24s %s\n' "$id" "marked as up to date"
+    elif [ -z "$installed" ]; then
+      unknown+=("$id")
+      printf '%-24s %s\n' "$id" "not tracked yet"
+    elif [ "$current" != "$installed" ]; then
+      updates+=("$id")
+      printf '%-24s %s\n' "$id" "UPDATE AVAILABLE"
+    else
+      printf '%-24s %s\n' "$id" "up to date"
+    fi
+  done
+
+  printf '%s\n' "${updates[@]}" >"$RECORD_DIR/updates-available.txt"
+  sed -i '/^$/d' "$RECORD_DIR/updates-available.txt"
+
+  echo
+  if [ "${#updates[@]}" -gt 0 ]; then
+    echo "Update with: $SCRIPT_DIR/$SCRIPT_NAME --only ${updates[*]}"
+  else
+    echo "No updates found."
+  fi
+  [ "${#unknown[@]}" -eq 0 ] || echo "Not tracked yet (install once, or run --check --mark-current): ${unknown[*]}"
+
+  if [ "$NOTIFY" = true ] && [ "${#updates[@]}" -gt 0 ] && command -v notify-send >/dev/null 2>&1; then
+    notify-send -a "secure-install" -i system-software-update \
+      "${#updates[@]} app update(s) available" "${updates[*]}" || true
+  fi
+}
+
 main() {
   local used_only_flag=false
   local -a only_packages=()
@@ -110,6 +196,17 @@ main() {
         ;;
       --stop-on-error)
         STOP_ON_ERROR=true
+        shift
+        ;;
+      --check)
+        shift
+        ;;
+      --notify)
+        NOTIFY=true
+        shift
+        ;;
+      --mark-current)
+        MARK_CURRENT=true
         shift
         ;;
       --yes)
@@ -202,6 +299,14 @@ main() {
   mkdir -p "$STATE_DIR"
   : >"$LOG_FILE"
   : >"$STATUS_FILE"
+  INSTALLED_FILE="$RECORD_DIR/installed.tsv"
+  FINGERPRINT_DIR="$STATE_DIR/fingerprints-$TIMESTAMP"
+  mkdir -p "$FINGERPRINT_DIR"
+
+  if [ "$CHECK_MODE" = true ]; then
+    check_for_updates "${selected[@]}"
+    return
+  fi
 
   require_command sudo
   require_command pacman
@@ -215,9 +320,19 @@ main() {
     sudo -v
   fi
 
+  local failures_before fingerprint
   for id in "${selected[@]}"; do
+    failures_before=${#FAILURES[@]}
+    CURRENT_PACKAGE="$id"
     "${PACKAGE_INSTALLER[$id]}"
+    CURRENT_PACKAGE=""
+
+    fingerprint="$(cat "$FINGERPRINT_DIR/$id" 2>/dev/null || true)"
+    if [ "$DRY_RUN" = false ] && [ "${#FAILURES[@]}" -eq "$failures_before" ] && [ -n "$fingerprint" ]; then
+      record_installed_release "$id" "$fingerprint"
+    fi
   done
+  rm -rf "$FINGERPRINT_DIR"
 
   print_summary
 

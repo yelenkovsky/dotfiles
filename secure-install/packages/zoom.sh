@@ -41,6 +41,7 @@ ZOOM_RUNTIME_PACKAGES=(
   xcb-util-wm
   xdg-utils
 )
+register_update_check zoom "$ZOOM_DEB"
 
 resolve_zoom_deb_url() {
   local url=""
@@ -162,13 +163,11 @@ install_zoom_files() {
   local owner="$USER"
   local group
   local work="$STATE_DIR/zoom-extract-$TIMESTAMP"
-  local stage="$STATE_DIR/zoom-stage-$TIMESTAMP"
   local data=""
   local icon=""
 
   group="$(id -gn "$owner")"
 
-  rm -rf "$stage"
   if [ ! -s "$work/_gpgbuilder" ]; then
     rm -rf "$work"
     mkdir -p "$work"
@@ -202,15 +201,9 @@ install_zoom_files() {
 
   # cef/chrome_sandbox wants setuid, but this tree is user-owned so the
   # binary can be replaced. Leave it mode 755.
-  sudo rm -rf "$stage"
-  sudo mkdir -p "$stage"
-  sudo cp -a "$work/opt/zoom"/. "$stage"/
-  sudo chown -R "$owner:$group" "$stage"
-  sudo chmod u+rwX "$stage"
-  sudo chmod 755 "$stage/ZoomLauncher" "$stage/zoom"
-  sudo rm -rf "$ZOOM_INSTALL_DIR"
-  sudo mv "$stage" "$ZOOM_INSTALL_DIR"
-  sudo ln -sfn "$ZOOM_INSTALL_DIR/ZoomLauncher" /usr/local/bin/zoom
+  replace_install_tree "$work/opt/zoom" "$ZOOM_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$ZOOM_INSTALL_DIR/ZoomLauncher" "$ZOOM_INSTALL_DIR/zoom" || return 1
+  sudo ln -sfn "$ZOOM_INSTALL_DIR/ZoomLauncher" /usr/local/bin/zoom || return 1
 
   sudo tee /usr/share/applications/Zoom.desktop >/dev/null <<EOF
 [Desktop Entry]
@@ -334,6 +327,8 @@ install_zoom() {
   fi
 
   log "Verified Zoom .deb ($file_size bytes); extracting to $ZOOM_INSTALL_DIR"
+
+  close_running_app "Zoom" "$ZOOM_INSTALL_DIR"
 
   run_step "install Zoom" install_zoom_files
 }

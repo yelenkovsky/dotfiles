@@ -12,6 +12,7 @@ CURSOR_LAUNCH="$CURSOR_INSTALL_DIR/launch"
 CURSOR_UPDATER="$CURSOR_INSTALL_DIR/appimageupdatetool.AppImage"
 CURSOR_DOWNLOAD="$STATE_DIR/Cursor-$TIMESTAMP.AppImage"
 CURSOR_DOWNLOAD_URL=""
+register_update_check cursor "$CURSOR_DOWNLOAD"
 
 download_cursor_api_json() {
   download_url_to_file "$CURSOR_API_JSON" "$CURSOR_DOWNLOAD_API_URL" "Mozilla/5.0"
@@ -582,6 +583,8 @@ install_cursor() {
 
   chmod 700 "$CURSOR_DOWNLOAD"
   log "Verified Cursor AppImage ($file_size bytes); installing to $CURSOR_INSTALL_DIR"
+
+  close_running_app "Cursor" "$CURSOR_INSTALL_DIR"
 
   run_step "install Cursor AppImage" install_cursor_files
 }

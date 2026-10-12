@@ -7,6 +7,7 @@ POMOTROID_DOWNLOAD="$STATE_DIR/pomotroid-$TIMESTAMP.AppImage"
 POMOTROID_ICON_DIR="$STATE_DIR/pomotroid-icon-$TIMESTAMP"
 POMOTROID_DOWNLOAD_URL=""
 POMOTROID_SHA256=""
+register_update_check pomotroid "$POMOTROID_DOWNLOAD"
 
 resolve_pomotroid_url() {
   local json="$STATE_DIR/pomotroid-releases-$TIMESTAMP.json"
@@ -174,6 +175,8 @@ install_pomotroid() {
 
   chmod 700 "$POMOTROID_DOWNLOAD"
   log "Verified Pomotroid AppImage ($file_size bytes); installing to $POMOTROID_INSTALL_DIR"
+
+  close_running_app "Pomotroid" "$POMOTROID_INSTALL_DIR"
 
   run_step "install Pomotroid AppImage" install_pomotroid_files
 }

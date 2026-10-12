@@ -5,6 +5,7 @@ PASS_CLI_SHA256_URL="https://github.com/protonpass/pass-cli/releases/latest/down
 PASS_CLI_DOWNLOAD="$STATE_DIR/pass-cli-$TIMESTAMP"
 PASS_CLI_SHA256_FILE="$STATE_DIR/pass-cli-$TIMESTAMP.sha256"
 PASS_CLI_BIN="/usr/local/bin/pass-cli"
+register_update_check pass-cli "$PASS_CLI_DOWNLOAD"
 
 download_pass_cli_files() {
   download_url_to_file "$PASS_CLI_SHA256_FILE" "$PASS_CLI_SHA256_URL"
@@ -65,6 +66,8 @@ install_pass_cli() {
 
   chmod 700 "$PASS_CLI_DOWNLOAD"
   log "Verified Proton Pass CLI SHA-256; installing to $PASS_CLI_BIN"
+
+  close_running_app "Proton Pass CLI" "$PASS_CLI_BIN"
 
   run_step "install Proton Pass CLI" install_pass_cli_files
 }

@@ -5,6 +5,7 @@ TODOIST_INSTALL_DIR="/opt/todoist"
 TODOIST_APPIMAGE_NAME="Todoist.AppImage"
 TODOIST_DOWNLOAD="$STATE_DIR/Todoist-$TIMESTAMP.AppImage"
 TODOIST_ICON_DIR="$STATE_DIR/todoist-icon-$TIMESTAMP"
+register_update_check todoist "$TODOIST_DOWNLOAD"
 
 download_todoist_appimage() {
   download_url_to_file "$TODOIST_DOWNLOAD" "$TODOIST_DOWNLOAD_URL"
@@ -103,6 +104,8 @@ install_todoist() {
 
   chmod 700 "$TODOIST_DOWNLOAD"
   log "Verified Todoist AppImage ($file_size bytes); installing to $TODOIST_INSTALL_DIR"
+
+  close_running_app "Todoist" "$TODOIST_INSTALL_DIR"
 
   run_step "install Todoist AppImage" install_todoist_files
 }

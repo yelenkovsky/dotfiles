@@ -13,6 +13,7 @@ ELEMENT_DEB="$STATE_DIR/element-desktop-$TIMESTAMP.deb"
 ELEMENT_INSTALL_DIR="/opt/element-desktop"
 ELEMENT_DEB_URL=""
 ELEMENT_SHA256=""
+register_update_check element "$ELEMENT_DEB"
 
 download_element_metadata() {
   download_url_to_file "$ELEMENT_PACKAGES" "$ELEMENT_PACKAGES_URL"
@@ -155,20 +156,19 @@ install_element_files() {
     return 1
   fi
 
-  sudo mkdir -p "$ELEMENT_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$ELEMENT_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$ELEMENT_INSTALL_DIR"
-  sudo chmod u+rwX "$ELEMENT_INSTALL_DIR"
-  sudo chmod 755 "$ELEMENT_INSTALL_DIR/element-desktop"
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$ELEMENT_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$ELEMENT_INSTALL_DIR/element-desktop" || return 1
   # Hyprland is not a desktop Electron auto-detects; pin gnome-libsecret
   # (same as chromium-flags.conf on this machine).
-  sudo tee /usr/local/bin/element-desktop >/dev/null <<EOF
+  sudo tee /usr/local/bin/element-desktop >/dev/null <<EOF || return 1
 #!/bin/bash
 exec $ELEMENT_INSTALL_DIR/element-desktop --password-store=gnome-libsecret --no-sandbox "\$@"
 EOF
-  sudo chmod 755 /usr/local/bin/element-desktop
+  sudo chmod 755 /usr/local/bin/element-desktop || return 1
 
-  sudo tee /usr/share/applications/element-desktop.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/element-desktop.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Element
 Comment=Secure Matrix messenger
@@ -182,11 +182,11 @@ MimeType=x-scheme-handler/element;x-scheme-handler/io.element.desktop;
 StartupWMClass=Element
 StartupNotify=true
 EOF
-  sudo chmod 644 /usr/share/applications/element-desktop.desktop
+  sudo chmod 644 /usr/share/applications/element-desktop.desktop || return 1
 
   icon="$(find "$work" -type f \( -name 'element.png' -o -name 'element-desktop.png' -o -name 'io.element.desktop.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/element-desktop.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/element-desktop.png || return 1
   fi
 
   rm -rf "$work" "$ELEMENT_DEB" "$ELEMENT_PACKAGES" "$ELEMENT_INRELEASE" "$ELEMENT_GPG_KEY" "$ELEMENT_GPG_HOME"
@@ -272,6 +272,8 @@ install_element() {
   fi
 
   log "Verified Element Desktop .deb SHA-256; extracting to $ELEMENT_INSTALL_DIR"
+
+  close_running_app "Element Desktop" "$ELEMENT_INSTALL_DIR"
 
   run_step "install Element Desktop" install_element_files
 }

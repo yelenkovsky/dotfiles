@@ -13,6 +13,7 @@ CLAUDE_DESKTOP_INRELEASE="$STATE_DIR/claude-desktop-$TIMESTAMP.InRelease"
 CLAUDE_DESKTOP_GPG_KEY="$STATE_DIR/claude-desktop-signing-key-$TIMESTAMP.asc"
 CLAUDE_DESKTOP_GPG_HOME="$STATE_DIR/claude-desktop-gnupg-$TIMESTAMP"
 CLAUDE_DESKTOP_DEB="$STATE_DIR/claude-desktop-$TIMESTAMP.deb"
+register_update_check claude-desktop "$CLAUDE_DESKTOP_DEB"
 # User prefix: sudo on this machine asks for a password, and the desktop
 # entry has to be installable without one. $HOME is not hardcoded.
 CLAUDE_DESKTOP_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/claude-desktop"
@@ -294,6 +295,8 @@ install_claude_desktop() {
   fi
 
   log "Verified Claude Desktop .deb SHA-256; extracting to $CLAUDE_DESKTOP_INSTALL_DIR"
+
+  close_running_app "Claude Desktop" "$CLAUDE_DESKTOP_INSTALL_DIR"
 
   run_step "install Claude Desktop" install_claude_desktop_files
 }

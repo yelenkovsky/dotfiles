@@ -16,6 +16,7 @@ PORTMASTER_RUNTIME_PACKAGES=(
   libayatana-appindicator
   webkit2gtk-4.1
 )
+register_update_check portmaster "$PORTMASTER_DEB"
 
 download_portmaster_metadata() {
   download_url_to_file "$PORTMASTER_PAGE" "$PORTMASTER_DOWNLOAD_PAGE"
@@ -274,6 +275,8 @@ install_portmaster() {
   log "Verified Portmaster .deb SHA-256 ($file_size bytes)"
 
   install_package_group pacman "Portmaster runtime packages" PORTMASTER_RUNTIME_PACKAGES
+
+  close_running_app "Portmaster app" "$PORTMASTER_LIB_DIR"
 
   run_step "install Portmaster" install_portmaster_files
 }

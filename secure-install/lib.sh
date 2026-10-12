@@ -4,6 +4,14 @@ declare -a PACKAGE_IDS=()
 declare -A PACKAGE_ORDER=()
 declare -A PACKAGE_DESCRIPTION=()
 declare -A PACKAGE_INSTALLER=()
+declare -A PACKAGE_ARTIFACT=()
+
+# --check mode: run each installer up to the point where it would download the
+# app, record what it would download, and stop. Set by secure-install.sh.
+CHECK_MODE="${CHECK_MODE:-false}"
+CURRENT_PACKAGE=""
+FINGERPRINT_DIR=""
+INSTALLED_FILE=""
 
 register_package() {
   local id="$1"
@@ -20,6 +28,12 @@ register_package() {
   PACKAGE_ORDER["$id"]="$order"
   PACKAGE_DESCRIPTION["$id"]="$description"
   PACKAGE_INSTALLER["$id"]="$installer"
+}
+
+# Name the download that is the app itself (not metadata, checksums or keys),
+# so --check can tell when a newer one is published.
+register_update_check() {
+  PACKAGE_ARTIFACT["$1"]="$2"
 }
 
 package_exists() {
@@ -61,6 +75,11 @@ load_secure_install_packages() {
 }
 
 log() {
+  if [ "$CHECK_MODE" = true ]; then
+    printf '[%s] %s\n' "$(date +'%F %T')" "$*" >>"$LOG_FILE"
+    return 0
+  fi
+
   printf '[%s] %s\n' "$(date +'%F %T')" "$*" | tee -a "$LOG_FILE"
 }
 
@@ -98,6 +117,17 @@ run_step() {
   log "STEP: $step_name"
   log "COMMAND: $(command_to_string "${command[@]}")"
 
+  # Check mode only fetches and reads release metadata. Anything that installs,
+  # extracts or changes the system is skipped, and failures are not reported.
+  if [ "$CHECK_MODE" = true ]; then
+    case "${command[0]}" in
+      download_* | resolve_* | parse_* | verify_* | fetch_*)
+        "${command[@]}" >>"$LOG_FILE" 2>&1 || true
+        ;;
+    esac
+    return 0
+  fi
+
   if [ "$DRY_RUN" = true ]; then
     record_status "DRY_RUN" "$step_name"
     return 0
@@ -130,6 +160,8 @@ install_package_group() {
   local package_name
   local -a base_command
 
+  [ "$CHECK_MODE" = true ] && return 0
+
   log ""
   log "GROUP: $group_name"
 
@@ -159,42 +191,287 @@ install_package_group() {
   done
 }
 
-app_processes_running() {
-  pgrep -u "$USER" -f "^$1/" >/dev/null 2>&1
+# Print the PIDs of our own processes started from any of the given install
+# paths (a directory or a single file). A process matches on its executable,
+# its argv[0], or the APPIMAGE variable that AppImages export to every child,
+# because a running AppImage executes from /tmp/.mount_*, not from /opt.
+# The installer's own ancestors (e.g. the terminal app it runs in) are skipped.
+app_process_pids() {
+  local -A ancestors=()
+  local proc pid exe argv0 entry appimage path value
+  local -a values
+
+  pid=$$
+  while [ "$pid" -gt 1 ] 2>/dev/null; do
+    ancestors[$pid]=1
+    read -r _ _ _ pid _ <"/proc/$pid/stat" 2>/dev/null || break
+  done
+
+  for proc in /proc/[0-9]*; do
+    pid="${proc#/proc/}"
+    [ -O "$proc" ] || continue
+    [ -z "${ancestors[$pid]+x}" ] || continue
+
+    exe="$(readlink "$proc/exe" 2>/dev/null)" || exe=""
+    exe="${exe% (deleted)}"
+    argv0=""
+    IFS= read -r -d '' argv0 <"$proc/cmdline" 2>/dev/null || true
+    appimage=""
+    case "$exe" in
+      "${TMPDIR:-/tmp}"/.mount_* | "${TMPDIR:-/tmp}"/appimage_extracted_* | /tmp/.mount_* | /tmp/appimage_extracted_*)
+        {
+          while IFS= read -r -d '' entry; do
+            case "$entry" in APPIMAGE=*) appimage="${entry#APPIMAGE=}"; break ;; esac
+          done <"$proc/environ"
+        } 2>/dev/null || true
+        ;;
+    esac
+
+    values=("$exe" "$argv0" "$appimage")
+    for path in "$@"; do
+      for value in "${values[@]}"; do
+        case "$value" in
+          "$path" | "$path"/* | "$path "*)
+            printf '%s\n' "$pid"
+            continue 3
+            ;;
+        esac
+      done
+    done
+  done
+
+  return 0
 }
 
-# Close every process of ours started from an install dir, so its files can be
-# replaced. Asks politely first (SIGTERM, lets Electron apps save state), then
-# forces anything still alive after the timeout.
+# True when the installer itself runs inside the app (e.g. installing Claude
+# Desktop from its own terminal pane); closing it would kill the installer.
+app_hosts_installer() {
+  local pid=$$ exe path
+
+  while [ "$pid" -gt 1 ] 2>/dev/null; do
+    exe="$(readlink "/proc/$pid/exe" 2>/dev/null)" || exe=""
+    exe="${exe% (deleted)}"
+    for path in "$@"; do
+      case "$exe" in "$path" | "$path"/*) return 0 ;; esac
+    done
+    read -r _ _ _ pid _ <"/proc/$pid/stat" 2>/dev/null || break
+  done
+
+  return 1
+}
+
+# Close an app before its files are replaced: overwriting a running binary
+# fails with "Text file busy" and leaves a mixed old/new install. Asks politely
+# first (SIGTERM, lets Electron apps save state), then forces anything still
+# alive after APP_CLOSE_TIMEOUT seconds.
 stop_app_processes() {
   local label="$1"
-  local install_dir="$2"
-  local timeout="${3:-10}"
+  shift
+  local timeout="${APP_CLOSE_TIMEOUT:-10}"
   local waited=0
+  local -a pids
 
-  app_processes_running "$install_dir" || return 0
+  if app_hosts_installer "$@"; then
+    log "The installer is running inside $label; close $label and run it from another terminal"
+    return 1
+  fi
 
-  log "Closing running $label"
-  pkill -TERM -u "$USER" -f "^$install_dir/" || true
+  mapfile -t pids < <(app_process_pids "$@")
+  [ "${#pids[@]}" -gt 0 ] || return 0
 
-  while app_processes_running "$install_dir" && [ "$waited" -lt "$timeout" ]; do
+  log "Closing running $label (${#pids[@]} processes)"
+  kill -TERM "${pids[@]}" 2>/dev/null || true
+
+  while [ -n "$(app_process_pids "$@")" ] && [ "$waited" -lt "$timeout" ]; do
     sleep 1
     waited=$((waited + 1))
   done
 
-  if app_processes_running "$install_dir"; then
+  mapfile -t pids < <(app_process_pids "$@")
+  if [ "${#pids[@]}" -gt 0 ]; then
     log "$label did not exit after ${timeout}s; killing it"
-    pkill -KILL -u "$USER" -f "^$install_dir/" || true
+    kill -KILL "${pids[@]}" 2>/dev/null || true
     sleep 1
   fi
 
-  if app_processes_running "$install_dir"; then
+  if [ -n "$(app_process_pids "$@")" ]; then
     log "Could not close $label"
     return 1
   fi
 }
 
+# Installers call this right before their install step, after the download has
+# been verified, so a failed download never closes anything.
+close_running_app() {
+  local label="$1"
+  shift
+
+  [ "$CHECK_MODE" = true ] && return 0
+
+  if [ -z "$(app_process_pids "$@")" ] && ! app_hosts_installer "$@"; then
+    return 0
+  fi
+
+  run_step "close running $label" stop_app_processes "$label" "$@"
+}
+
+# Install an extracted app tree into dest without ever leaving it half-copied:
+# copy into dest.new, swap it in with two renames on the same filesystem, and
+# only then delete the old tree. Any failure before the swap leaves the old
+# install untouched. Pass owner as user:group to hand the tree to the user (so
+# later updates need no sudo), or "" to keep it root-owned.
+replace_install_tree() {
+  local src="$1"
+  local dest="$2"
+  local owner="${3-}"
+  local stage="$dest.new"
+  local old="$dest.old"
+
+  sudo rm -rf "$stage" "$old" || return 1
+
+  if ! sudo mkdir -p "$stage" || ! sudo cp -a "$src"/. "$stage"/; then
+    log "Could not copy the new files into $stage; keeping the current install"
+    sudo rm -rf "$stage"
+    return 1
+  fi
+
+  if [ -n "$owner" ]; then
+    if ! sudo chown -R "$owner" "$stage" || ! sudo chmod u+rwX "$stage"; then
+      log "Could not set ownership on $stage; keeping the current install"
+      sudo rm -rf "$stage"
+      return 1
+    fi
+  fi
+
+  if [ -e "$dest" ] && ! sudo mv "$dest" "$old"; then
+    log "Could not move the current install aside; keeping it"
+    sudo rm -rf "$stage"
+    return 1
+  fi
+
+  if ! sudo mv "$stage" "$dest"; then
+    log "Could not move the new files into $dest; restoring the previous install"
+    [ -e "$old" ] && sudo mv "$old" "$dest"
+    sudo rm -rf "$stage"
+    return 1
+  fi
+
+  sudo rm -rf "$old" || log "Could not remove the previous install at $old"
+}
+
+# Identify a release without downloading it: the final URL after redirects
+# (query string dropped, since CDNs sign it per request) and the size in bytes.
+# Tries HEAD first and falls back to a one-byte range GET for servers that
+# refuse HEAD. Prints "url|size".
+release_fingerprint() {
+  local url="$1"
+  local user_agent="${2-}"
+  local -a agent=()
+  local headers=""
+  local final=""
+  local size=""
+
+  [ -n "$user_agent" ] && agent=(-A "$user_agent")
+
+  headers="$(curl -fsSIL --retry 2 --max-time 60 "${agent[@]}" -w '\n%{url_effective}' "$url" 2>/dev/null)" \
+    || headers="$(curl -fsSL --retry 2 --max-time 60 -r 0-0 -D - -o /dev/null "${agent[@]}" -w '\n%{url_effective}' "$url" 2>/dev/null)" \
+    || return 1
+
+  # Only the last response counts: redirects carry their own (often zero)
+  # Content-Length. Generated downloads (e.g. GitHub source tarballs) send no
+  # size at all; fall back to the ETag, and then to the URL alone, which for
+  # those already names the release.
+  final="$(printf '%s\n' "$headers" | tail -n 1)"
+  size="$(printf '%s\n' "$headers" | tr -d '\r' | awk '
+    /^HTTP\// { range = ""; length_ = ""; etag = "" }
+    tolower($1) == "content-range:" { n = split($2 $3, part, "/"); if (part[n] ~ /^[0-9]+$/) range = part[n] }
+    tolower($1) == "content-length:" && $2 > 0 { length_ = $2 }
+    tolower($1) == "etag:" { etag = $2 }
+    END { print (range != "" ? range : length_ != "" ? length_ : etag != "" ? "etag:" etag : "-") }
+  ')"
+
+  [ -n "$final" ] || return 1
+  printf '%s|%s\n' "${final%%\?*}" "$size"
+}
+
+# Called by download_url_to_file. In check mode, the app download is replaced
+# by a fingerprint and everything the installer downloads after it is skipped.
+# Returns 0 when the real download should go ahead.
+intercept_package_download() {
+  local dest="$1"
+  local url="$2"
+  local user_agent="$3"
+  local artifact=""
+  local file=""
+
+  [ "$CHECK_MODE" = true ] && [ -n "$CURRENT_PACKAGE" ] || return 0
+  artifact="${PACKAGE_ARTIFACT[$CURRENT_PACKAGE]-}"
+  file="$FINGERPRINT_DIR/$CURRENT_PACKAGE"
+
+  [ ! -e "$file" ] || return 1
+  if [ -n "$artifact" ] && [ "$dest" = "$artifact" ]; then
+    release_fingerprint "$url" "$user_agent" >"$file.tmp" && mv "$file.tmp" "$file"
+    rm -f "$file.tmp"
+    return 1
+  fi
+
+  return 0
+}
+
+# After a real download of the app, remember its fingerprint so the main loop
+# can record it once the whole package installed without failures.
+note_package_download() {
+  local dest="$1"
+  local url="$2"
+  local user_agent="$3"
+
+  [ "$CHECK_MODE" != true ] && [ -n "$CURRENT_PACKAGE" ] && [ -n "$FINGERPRINT_DIR" ] || return 0
+  [ "$dest" = "${PACKAGE_ARTIFACT[$CURRENT_PACKAGE]-}" ] || return 0
+
+  release_fingerprint "$url" "$user_agent" >"$FINGERPRINT_DIR/$CURRENT_PACKAGE" \
+    || rm -f "$FINGERPRINT_DIR/$CURRENT_PACKAGE"
+  return 0
+}
+
+# For installers that see on their own that the latest release is already
+# installed and skip the download: report that release anyway, so --check and
+# the installed record still know about it.
+note_release_already_installed() {
+  [ -n "$CURRENT_PACKAGE" ] && [ -n "$FINGERPRINT_DIR" ] || return 0
+  release_fingerprint "$1" "${2-}" >"$FINGERPRINT_DIR/$CURRENT_PACKAGE" \
+    || rm -f "$FINGERPRINT_DIR/$CURRENT_PACKAGE"
+  return 0
+}
+
+installed_fingerprint() {
+  [ -f "$INSTALLED_FILE" ] || return 0
+  awk -F '\t' -v id="$1" '$1 == id { print $2 }' "$INSTALLED_FILE"
+}
+
+record_installed_release() {
+  local id="$1"
+  local fingerprint="$2"
+  local tmp="$INSTALLED_FILE.tmp"
+
+  mkdir -p "$(dirname "$INSTALLED_FILE")"
+  touch "$INSTALLED_FILE"
+  awk -F '\t' -v id="$id" '$1 != id' "$INSTALLED_FILE" >"$tmp"
+  printf '%s\t%s\t%s\n' "$id" "$fingerprint" "$(date +%F)" >>"$tmp"
+  sort -o "$tmp" "$tmp"
+  mv "$tmp" "$INSTALLED_FILE"
+}
+
 download_url_to_file() {
+  local dest="$1"
+  local url="$2"
+  local user_agent="${3-}"
+
+  intercept_package_download "$dest" "$url" "$user_agent" || return 1
+  _download_url_to_file "$dest" "$url" "$user_agent" || return
+  note_package_download "$dest" "$url" "$user_agent"
+}
+
+_download_url_to_file() {
   local dest="$1"
   local url="$2"
   local user_agent="${3-}"

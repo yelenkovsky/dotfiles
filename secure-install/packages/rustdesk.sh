@@ -19,6 +19,7 @@ RUSTDESK_RUNTIME_PACKAGES=(
   pam
   xdotool
 )
+register_update_check rustdesk "$RUSTDESK_DOWNLOAD"
 
 resolve_rustdesk_url() {
   local json="$STATE_DIR/rustdesk-releases-$TIMESTAMP.json"
@@ -105,14 +106,19 @@ install_rustdesk_files() {
     return 1
   fi
 
-  sudo mkdir -p "$RUSTDESK_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$RUSTDESK_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$RUSTDESK_INSTALL_DIR"
-  sudo chmod u+rwX "$RUSTDESK_INSTALL_DIR"
-  sudo chmod 755 "$RUSTDESK_INSTALL_DIR/rustdesk"
-  sudo ln -sfn "$RUSTDESK_INSTALL_DIR/rustdesk" /usr/local/bin/rustdesk
+  # rustdesk.service runs /opt/rustdesk/rustdesk as root, which close_running_app
+  # cannot touch; stop it so the binary is not busy. enable --now below starts it.
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet rustdesk.service; then
+    sudo systemctl stop rustdesk.service || return 1
+  fi
 
-  sudo tee /usr/share/applications/rustdesk.desktop >/dev/null <<EOF
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$RUSTDESK_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$RUSTDESK_INSTALL_DIR/rustdesk" || return 1
+  sudo ln -sfn "$RUSTDESK_INSTALL_DIR/rustdesk" /usr/local/bin/rustdesk || return 1
+
+  sudo tee /usr/share/applications/rustdesk.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=RustDesk
 GenericName=Remote Desktop
@@ -126,9 +132,9 @@ Categories=Network;RemoteAccess;GTK;
 Keywords=remote-desktop;
 StartupWMClass=rustdesk
 EOF
-  sudo chmod 644 /usr/share/applications/rustdesk.desktop
+  sudo chmod 644 /usr/share/applications/rustdesk.desktop || return 1
 
-  sudo tee /usr/share/applications/rustdesk-link.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/rustdesk-link.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=RustDesk
 NoDisplay=true
@@ -141,20 +147,20 @@ Type=Application
 StartupNotify=false
 StartupWMClass=rustdesk
 EOF
-  sudo chmod 644 /usr/share/applications/rustdesk-link.desktop
+  sudo chmod 644 /usr/share/applications/rustdesk-link.desktop || return 1
 
   icon="$(find "$work/usr/share/icons" -type f -name 'rustdesk.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/icons/hicolor/256x256/apps/rustdesk.png
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/rustdesk.png
+    sudo install -D -m 644 "$icon" /usr/share/icons/hicolor/256x256/apps/rustdesk.png || return 1
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/rustdesk.png || return 1
   fi
   if [ -f "$work/usr/share/icons/hicolor/scalable/apps/rustdesk.svg" ]; then
-    sudo install -D -m 644 "$work/usr/share/icons/hicolor/scalable/apps/rustdesk.svg" /usr/share/icons/hicolor/scalable/apps/rustdesk.svg
+    sudo install -D -m 644 "$work/usr/share/icons/hicolor/scalable/apps/rustdesk.svg" /usr/share/icons/hicolor/scalable/apps/rustdesk.svg || return 1
   fi
 
   # Official package starts the incoming-connection service. This machine uses
   # systemd; point the unit at /opt instead of /usr/bin.
-  sudo tee /etc/systemd/system/rustdesk.service >/dev/null <<EOF
+  sudo tee /etc/systemd/system/rustdesk.service >/dev/null <<EOF || return 1
 [Unit]
 Description=RustDesk
 Requires=network.target
@@ -174,7 +180,7 @@ Environment="PULSE_LATENCY_MSEC=60" "PIPEWIRE_LATENCY=1024/48000"
 [Install]
 WantedBy=multi-user.target
 EOF
-  sudo chmod 644 /etc/systemd/system/rustdesk.service
+  sudo chmod 644 /etc/systemd/system/rustdesk.service || return 1
   sudo systemctl daemon-reload
   sudo systemctl enable --now rustdesk.service
 
@@ -249,5 +255,21 @@ install_rustdesk() {
 
   log "Verified RustDesk package SHA-256 ($file_size bytes); extracting to $RUSTDESK_INSTALL_DIR"
 
+  close_running_app "RustDesk" "$RUSTDESK_INSTALL_DIR"
+
+  # install_rustdesk_files stops the service and runs in run_step's subshell,
+  # so note its state here. If the install fails part way, start it again:
+  # replace_install_tree keeps the old tree on a failed copy, so the unit
+  # always has a binary to run.
+  local service_was_active=false
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet rustdesk.service; then
+    service_was_active=true
+  fi
+
   run_step "install RustDesk" install_rustdesk_files
+
+  if [ "$service_was_active" = true ] && [ "$DRY_RUN" != true ] \
+    && ! systemctl is-active --quiet rustdesk.service; then
+    run_step "restart RustDesk service" sudo systemctl start rustdesk.service
+  fi
 }

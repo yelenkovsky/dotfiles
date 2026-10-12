@@ -5,6 +5,7 @@ register_package zotero 170 "Zotero" install_zotero
 ZOTERO_DOWNLOAD_URL="https://www.zotero.org/download/client/dl?channel=release&platform=linux-x86_64"
 ZOTERO_INSTALL_DIR="/opt/zotero"
 ZOTERO_DOWNLOAD="$STATE_DIR/zotero-$TIMESTAMP.tar.xz"
+register_update_check zotero "$ZOTERO_DOWNLOAD"
 
 download_zotero_tarball() {
   download_url_to_file "$ZOTERO_DOWNLOAD" "$ZOTERO_DOWNLOAD_URL"
@@ -39,14 +40,13 @@ install_zotero_files() {
     return 1
   fi
 
-  sudo mkdir -p "$ZOTERO_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$ZOTERO_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$ZOTERO_INSTALL_DIR"
-  sudo chmod u+rwX "$ZOTERO_INSTALL_DIR"
-  sudo chmod 755 "$ZOTERO_INSTALL_DIR/zotero" "$ZOTERO_INSTALL_DIR/zotero-bin"
-  sudo ln -sfn "$ZOTERO_INSTALL_DIR/zotero" /usr/local/bin/zotero
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$ZOTERO_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$ZOTERO_INSTALL_DIR/zotero" "$ZOTERO_INSTALL_DIR/zotero-bin" || return 1
+  sudo ln -sfn "$ZOTERO_INSTALL_DIR/zotero" /usr/local/bin/zotero || return 1
 
-  sudo tee /usr/share/applications/zotero.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/zotero.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Zotero
 Comment=Collect, organize, cite, and share research
@@ -60,11 +60,11 @@ StartupWMClass=Zotero
 StartupNotify=true
 X-GNOME-SingleWindow=true
 EOF
-  sudo chmod 644 /usr/share/applications/zotero.desktop
+  sudo chmod 644 /usr/share/applications/zotero.desktop || return 1
 
   icon="$(find "$appdir/icons" -type f \( -name 'icon128.png' -o -name 'icon64.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/zotero.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/zotero.png || return 1
   fi
 
   rm -rf "$work" "$ZOTERO_DOWNLOAD"
@@ -118,6 +118,8 @@ install_zotero() {
   fi
 
   log "Verified Zotero tarball ($file_size bytes); extracting to $ZOTERO_INSTALL_DIR"
+
+  close_running_app "Zotero" "$ZOTERO_INSTALL_DIR"
 
   run_step "install Zotero" install_zotero_files
 }

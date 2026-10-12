@@ -6,6 +6,7 @@ DBEAVER_SHA256_URL="https://dbeaver.io/files/checksum/dbeaver-ce-latest-linux-x8
 DBEAVER_INSTALL_DIR="/opt/dbeaver"
 DBEAVER_DOWNLOAD="$STATE_DIR/dbeaver-$TIMESTAMP.tar.gz"
 DBEAVER_SHA256_FILE="$STATE_DIR/dbeaver-$TIMESTAMP.sha256"
+register_update_check dbeaver "$DBEAVER_DOWNLOAD"
 
 download_dbeaver_files() {
   download_url_to_file "$DBEAVER_DOWNLOAD" "$DBEAVER_DOWNLOAD_URL"
@@ -36,14 +37,13 @@ install_dbeaver_files() {
     return 1
   fi
 
-  sudo mkdir -p "$DBEAVER_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$DBEAVER_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$DBEAVER_INSTALL_DIR"
-  sudo chmod u+rwX "$DBEAVER_INSTALL_DIR"
-  sudo chmod 755 "$DBEAVER_INSTALL_DIR/dbeaver"
-  sudo ln -sfn "$DBEAVER_INSTALL_DIR/dbeaver" /usr/local/bin/dbeaver
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$DBEAVER_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$DBEAVER_INSTALL_DIR/dbeaver" || return 1
+  sudo ln -sfn "$DBEAVER_INSTALL_DIR/dbeaver" /usr/local/bin/dbeaver || return 1
 
-  sudo tee /usr/share/applications/dbeaver.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/dbeaver.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=DBeaver
 Comment=Universal database tool
@@ -56,11 +56,11 @@ Categories=Development;Database;
 StartupWMClass=DBeaver
 StartupNotify=true
 EOF
-  sudo chmod 644 /usr/share/applications/dbeaver.desktop
+  sudo chmod 644 /usr/share/applications/dbeaver.desktop || return 1
 
   icon="$(find "$appdir" -type f \( -name 'dbeaver.png' -o -name 'dbeaver128.png' -o -name 'icon.xpm' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/dbeaver.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/dbeaver.png || return 1
   fi
 
   rm -rf "$work" "$DBEAVER_DOWNLOAD" "$DBEAVER_SHA256_FILE"
@@ -130,6 +130,8 @@ install_dbeaver() {
   fi
 
   log "Verified DBeaver SHA-256; extracting to $DBEAVER_INSTALL_DIR"
+
+  close_running_app "DBeaver" "$DBEAVER_INSTALL_DIR"
 
   run_step "install DBeaver" install_dbeaver_files
 }

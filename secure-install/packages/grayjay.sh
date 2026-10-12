@@ -17,6 +17,7 @@ GRAYJAY_RUNTIME_PACKAGES=(
   nss
   xdg-utils
 )
+register_update_check grayjay "$GRAYJAY_DOWNLOAD"
 
 download_grayjay_zip() {
   download_url_to_file "$GRAYJAY_DOWNLOAD" "$GRAYJAY_DOWNLOAD_URL"
@@ -55,21 +56,20 @@ install_grayjay_files() {
   # to XDG dirs while the user-owned /opt tree stays free for in-app updates.
   rm -f "$appdir/Portable"
 
-  sudo mkdir -p "$GRAYJAY_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$GRAYJAY_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$GRAYJAY_INSTALL_DIR"
-  sudo chmod u+rwX "$GRAYJAY_INSTALL_DIR"
-  sudo chmod 755 "$GRAYJAY_INSTALL_DIR/Grayjay"
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$GRAYJAY_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$GRAYJAY_INSTALL_DIR/Grayjay" || return 1
   # CEF resolves resources from cwd; chrome-sandbox cannot be setuid on a
   # user-owned tree.
-  sudo tee /usr/local/bin/grayjay >/dev/null <<EOF
+  sudo tee /usr/local/bin/grayjay >/dev/null <<EOF || return 1
 #!/bin/bash
 cd "$GRAYJAY_INSTALL_DIR" || exit 1
 exec ./Grayjay --no-sandbox "\$@"
 EOF
-  sudo chmod 755 /usr/local/bin/grayjay
+  sudo chmod 755 /usr/local/bin/grayjay || return 1
 
-  sudo tee /usr/share/applications/grayjay.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/grayjay.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Grayjay
 Comment=Follow creators, not platforms
@@ -82,11 +82,11 @@ Categories=AudioVideo;Video;Network;
 StartupWMClass=Grayjay
 StartupNotify=true
 EOF
-  sudo chmod 644 /usr/share/applications/grayjay.desktop
+  sudo chmod 644 /usr/share/applications/grayjay.desktop || return 1
 
   icon="$(find "$appdir" -type f \( -name 'grayjay.png' -o -name 'Grayjay.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/grayjay.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/grayjay.png || return 1
   fi
 
   rm -rf "$work" "$GRAYJAY_DOWNLOAD"
@@ -140,6 +140,8 @@ install_grayjay() {
   fi
 
   log "Verified Grayjay zip ($file_size bytes); extracting to $GRAYJAY_INSTALL_DIR"
+
+  close_running_app "Grayjay" "$GRAYJAY_INSTALL_DIR"
 
   run_step "install Grayjay" install_grayjay_files
 }

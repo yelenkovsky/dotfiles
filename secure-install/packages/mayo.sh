@@ -15,6 +15,7 @@ MAYO_DOWNLOAD_URL=""
 MAYO_ASSET_NAME=""
 MAYO_CONV_DOWNLOAD_URL=""
 MAYO_CONV_ASSET_NAME=""
+register_update_check mayo "$MAYO_DOWNLOAD"
 
 resolve_mayo_urls() {
   local json="$STATE_DIR/mayo-releases-$TIMESTAMP.json"
@@ -246,6 +247,8 @@ install_mayo() {
 
   chmod 700 "$MAYO_DOWNLOAD" "$MAYO_CONV_DOWNLOAD"
   log "Verified Mayo AppImages; installing to $MAYO_INSTALL_DIR"
+
+  close_running_app "Mayo" "$MAYO_INSTALL_DIR"
 
   run_step "install Mayo AppImages" install_mayo_files
 }

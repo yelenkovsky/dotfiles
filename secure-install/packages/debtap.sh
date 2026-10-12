@@ -10,6 +10,7 @@ DEBTAP_RUNTIME_PACKAGES=(
   fakeroot
   file
 )
+register_update_check debtap "$DEBTAP_TARBALL"
 
 resolve_debtap_url() {
   local json="$STATE_DIR/debtap-releases-$TIMESTAMP.json"
@@ -123,6 +124,8 @@ install_debtap() {
   fi
 
   log "Verified debtap tarball ($file_size bytes); installing to $DEBTAP_BIN"
+
+  close_running_app "debtap" "$DEBTAP_BIN"
 
   run_step "install debtap" install_debtap_files
 }

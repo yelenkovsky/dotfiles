@@ -10,6 +10,7 @@ BRAVE_ORIGIN_NIGHTLY_GPG_HOME="$STATE_DIR/brave-gnupg-$TIMESTAMP"
 BRAVE_ORIGIN_NIGHTLY_DOWNLOAD_URL=""
 BRAVE_ORIGIN_NIGHTLY_SHA256=""
 BRAVE_GPG_KEY_URL="https://keys.openpgp.org/vks/v1/by-fingerprint/D16166072CACDF2C9429CBF11BF41E37D039F691"
+register_update_check brave-origin-nightly "$BRAVE_ORIGIN_NIGHTLY_DOWNLOAD"
 # Brave Linux packaging key from https://brave.com/origin/linux/nightly/
 BRAVE_GPG_FINGERPRINT="D16166072CACDF2C9429CBF11BF41E37D039F691"
 
@@ -113,14 +114,13 @@ install_brave_origin_nightly_files() {
   fi
   appdir="$(dirname "$binary")"
 
-  sudo mkdir -p "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"
-  sudo chmod u+rwX "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"
-  sudo chmod 755 "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary")"
-  sudo ln -sfn "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary")" /usr/local/bin/brave-origin-nightly
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary")" || return 1
+  sudo ln -sfn "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary")" /usr/local/bin/brave-origin-nightly || return 1
 
-  sudo tee /usr/share/applications/brave-origin-nightly.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/brave-origin-nightly.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Brave Origin Nightly
 Comment=Brave Origin Nightly web browser
@@ -133,11 +133,11 @@ MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme
 StartupWMClass=brave-origin-nightly
 StartupNotify=true
 EOF
-  sudo chmod 644 /usr/share/applications/brave-origin-nightly.desktop
+  sudo chmod 644 /usr/share/applications/brave-origin-nightly.desktop || return 1
 
   icon="$(find "$appdir" -type f \( -name 'product_logo_128.png' -o -name 'brave.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/brave-origin-nightly.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/brave-origin-nightly.png || return 1
   fi
 
   rm -rf "$work" "$BRAVE_ORIGIN_NIGHTLY_DOWNLOAD" "$BRAVE_ORIGIN_NIGHTLY_SHA256_FILE" "$BRAVE_ORIGIN_NIGHTLY_SIG" "$BRAVE_ORIGIN_NIGHTLY_GPG_KEY" "$BRAVE_ORIGIN_NIGHTLY_GPG_HOME"
@@ -215,6 +215,8 @@ install_brave_origin_nightly() {
   fi
 
   log "Verified Brave Origin Nightly ($file_size bytes); installing to $BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"
+
+  close_running_app "Brave Origin Nightly" "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"
 
   run_step "install Brave Origin Nightly" install_brave_origin_nightly_files
 }

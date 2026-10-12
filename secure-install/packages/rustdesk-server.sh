@@ -10,6 +10,7 @@ RUSTDESK_SERVER_DATA_DIR="/var/lib/rustdesk-server"
 RUSTDESK_SERVER_LOG_DIR="/var/log/rustdesk-server"
 RUSTDESK_SERVER_DOWNLOAD_URL=""
 RUSTDESK_SERVER_SHA256=""
+register_update_check rustdesk-server "$RUSTDESK_SERVER_DOWNLOAD"
 
 resolve_rustdesk_server_url() {
   local json="$STATE_DIR/rustdesk-server-releases-$TIMESTAMP.json"

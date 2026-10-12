@@ -19,6 +19,7 @@ SLACK_RUNTIME_PACKAGES=(
   nss
   xdg-utils
 )
+register_update_check slack "$SLACK_DEB"
 
 download_slack_index() {
   download_url_to_file "$SLACK_INDEX" "$SLACK_DOWNLOADS_URL"
@@ -89,18 +90,17 @@ install_slack_files() {
     return 1
   fi
 
-  sudo mkdir -p "$SLACK_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$SLACK_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$SLACK_INSTALL_DIR"
-  sudo chmod u+rwX "$SLACK_INSTALL_DIR"
-  sudo chmod 755 "$SLACK_INSTALL_DIR/slack"
-  sudo tee /usr/local/bin/slack >/dev/null <<EOF
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$SLACK_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$SLACK_INSTALL_DIR/slack" || return 1
+  sudo tee /usr/local/bin/slack >/dev/null <<EOF || return 1
 #!/bin/bash
 exec $SLACK_INSTALL_DIR/slack --no-sandbox "\$@"
 EOF
-  sudo chmod 755 /usr/local/bin/slack
+  sudo chmod 755 /usr/local/bin/slack || return 1
 
-  sudo tee /usr/share/applications/slack.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/slack.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Slack
 Comment=Slack Desktop
@@ -114,11 +114,11 @@ Categories=Network;InstantMessaging;
 MimeType=x-scheme-handler/slack;
 StartupWMClass=Slack
 EOF
-  sudo chmod 644 /usr/share/applications/slack.desktop
+  sudo chmod 644 /usr/share/applications/slack.desktop || return 1
 
   icon="$(find "$work" -type f \( -name 'slack.png' -o -name 'slack-desktop.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/slack.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/slack.png || return 1
   fi
 
   rm -rf "$work" "$SLACK_DEB" "$SLACK_SHA256_FILE" "$SLACK_INDEX"
@@ -202,6 +202,8 @@ install_slack() {
   fi
 
   log "Verified Slack .deb SHA-256; extracting to $SLACK_INSTALL_DIR"
+
+  close_running_app "Slack" "$SLACK_INSTALL_DIR"
 
   run_step "install Slack" install_slack_files
 }

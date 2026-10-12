@@ -23,6 +23,7 @@ PROTON_CACHYOS_SHA512_FILE="$STATE_DIR/proton-cachyos-slr-v3-$TIMESTAMP.sha512su
 PROTON_CACHYOS_DOWNLOAD_URL=""
 PROTON_CACHYOS_SHA512=""
 PROTON_CACHYOS_TOOL_NAME=""
+register_update_check gaming "$PROTON_CACHYOS_DOWNLOAD"
 
 cpu_supports_x86_64_v3() {
   local loader="/lib/ld-linux-x86-64.so.2"
@@ -200,6 +201,7 @@ install_proton_cachyos_slr_v3() {
   dest="$PROTON_CACHYOS_COMPAT_DIR/$PROTON_CACHYOS_TOOL_NAME"
   if [ -f "$dest/proton" ] && [ -f "$dest/compatibilitytool.vdf" ]; then
     log "Proton-CachyOS SLR v3 already installed: $dest"
+    note_release_already_installed "$PROTON_CACHYOS_DOWNLOAD_URL"
   else
     run_step "download Proton-CachyOS SLR v3 checksum" download_proton_cachyos_slr_v3_checksum
 
@@ -255,6 +257,8 @@ install_proton_cachyos_slr_v3() {
     fi
 
     log "Verified Proton-CachyOS SLR v3 SHA-512 ($file_size bytes)"
+    close_running_app "Proton-CachyOS games" "$PROTON_CACHYOS_COMPAT_DIR/$PROTON_CACHYOS_TOOL_NAME"
+
     run_step "install Proton-CachyOS SLR v3" install_proton_cachyos_slr_v3_files
 
     if [ ! -f "$dest/proton" ]; then

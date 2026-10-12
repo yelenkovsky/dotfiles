@@ -6,6 +6,7 @@ APPIMAGELAUNCHER_APPIMAGE_NAME="AppImageLauncher.AppImage"
 APPIMAGELAUNCHER_DOWNLOAD="$STATE_DIR/appimagelauncher-$TIMESTAMP.AppImage"
 APPIMAGELAUNCHER_DOWNLOAD_URL=""
 APPIMAGELAUNCHER_SHA256=""
+register_update_check appimagelauncher "$APPIMAGELAUNCHER_DOWNLOAD"
 
 resolve_appimagelauncher_url() {
   local json="$STATE_DIR/appimagelauncher-releases-$TIMESTAMP.json"
@@ -149,6 +150,8 @@ install_appimagelauncher() {
 
   chmod 700 "$APPIMAGELAUNCHER_DOWNLOAD"
   log "Verified AppImageLauncher AppImage ($file_size bytes); installing to $APPIMAGELAUNCHER_INSTALL_DIR"
+
+  close_running_app "AppImageLauncher" "$APPIMAGELAUNCHER_INSTALL_DIR"
 
   run_step "install AppImageLauncher AppImage" install_appimagelauncher_files
 }

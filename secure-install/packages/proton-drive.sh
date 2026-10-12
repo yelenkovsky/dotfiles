@@ -5,6 +5,7 @@ PROTON_DRIVE_PLATFORM="linux/x64"
 PROTON_DRIVE_INDEX="$STATE_DIR/proton-drive-index-$TIMESTAMP.html"
 PROTON_DRIVE_DOWNLOAD="$STATE_DIR/proton-drive-$TIMESTAMP"
 PROTON_DRIVE_BIN="/usr/local/bin/proton-drive"
+register_update_check proton-drive "$PROTON_DRIVE_DOWNLOAD"
 
 download_proton_drive_index() {
   download_url_to_file "$PROTON_DRIVE_INDEX" "$PROTON_DRIVE_INDEX_URL"
@@ -113,6 +114,8 @@ install_proton_drive() {
 
   chmod 700 "$PROTON_DRIVE_DOWNLOAD"
   log "Verified Proton Drive CLI SHA-512; installing to $PROTON_DRIVE_BIN"
+
+  close_running_app "Proton Drive CLI" "$PROTON_DRIVE_BIN"
 
   run_step "install Proton Drive CLI" install_proton_drive_files
 }

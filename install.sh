@@ -73,6 +73,14 @@ if [ -f "$DOTFILES_DIR/.config/gh/config.yml" ]; then
 fi
 
 echo ""
+echo "Daily app update check (18:00 UTC)"
+if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+    "$DOTFILES_DIR/setup/update-check-timer.sh"
+else
+    echo "No systemd user session; run setup/update-check-timer.sh later"
+fi
+
+echo ""
 echo "Done."
 if [ -d "$BACKUP_DIR" ]; then
     echo "Backups: $BACKUP_DIR"

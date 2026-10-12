@@ -6,6 +6,7 @@ PROTON_PASS_DEB="$STATE_DIR/proton-pass-$TIMESTAMP.deb"
 PROTON_PASS_INSTALL_DIR="/opt/proton-pass"
 PROTON_PASS_DEB_URL=""
 PROTON_PASS_SHA512=""
+register_update_check proton-pass "$PROTON_PASS_DEB"
 
 download_proton_pass_version_json() {
   download_url_to_file "$PROTON_PASS_VERSION_JSON" "$PROTON_PASS_VERSION_URL"
@@ -87,14 +88,9 @@ install_proton_pass_files() {
   fi
   appdir="$(dirname "$binary")"
 
-  # Remove the old tree instead of copying over it: overwriting a running
-  # binary fails with "Text file busy", while unlinking it does not, and a
-  # fresh tree drops files left over from older releases.
-  sudo rm -rf "$PROTON_PASS_INSTALL_DIR" || return 1
-  sudo mkdir -p "$PROTON_PASS_INSTALL_DIR" || return 1
-  sudo cp -a "$appdir"/. "$PROTON_PASS_INSTALL_DIR"/ || return 1
-  sudo chown -R "$owner:$group" "$PROTON_PASS_INSTALL_DIR" || return 1
-  sudo chmod u+rwX "$PROTON_PASS_INSTALL_DIR" || return 1
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$PROTON_PASS_INSTALL_DIR" "$owner:$group" || return 1
   sudo chmod 755 "$PROTON_PASS_INSTALL_DIR/Proton Pass" || return 1
   sudo ln -sfn "$PROTON_PASS_INSTALL_DIR/Proton Pass" /usr/local/bin/proton-pass || return 1
 
@@ -188,9 +184,7 @@ install_proton_pass() {
 
   log "Verified Proton Pass .deb SHA-512; extracting to $PROTON_PASS_INSTALL_DIR"
 
-  if app_processes_running "$PROTON_PASS_INSTALL_DIR"; then
-    run_step "close running Proton Pass" stop_app_processes "Proton Pass" "$PROTON_PASS_INSTALL_DIR"
-  fi
+  close_running_app "Proton Pass" "$PROTON_PASS_INSTALL_DIR"
 
   run_step "install Proton Pass desktop" install_proton_pass_files
 }

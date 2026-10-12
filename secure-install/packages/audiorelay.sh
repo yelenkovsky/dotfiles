@@ -8,6 +8,7 @@ AUDIORELAY_INSTALL_DIR="/opt/audiorelay"
 AUDIORELAY_DOWNLOAD="$STATE_DIR/audiorelay-$TIMESTAMP.tar.gz"
 AUDIORELAY_API_JSON="$STATE_DIR/audiorelay-downloads-$TIMESTAMP.json"
 AUDIORELAY_DOWNLOAD_URL=""
+register_update_check audiorelay "$AUDIORELAY_DOWNLOAD"
 
 resolve_audiorelay_download() {
   download_url_to_file "$AUDIORELAY_API_JSON" "$AUDIORELAY_DOWNLOADS_API"
@@ -71,20 +72,19 @@ install_audiorelay_files() {
     return 1
   fi
 
-  sudo mkdir -p "$AUDIORELAY_INSTALL_DIR"
-  sudo cp -a "$work"/. "$AUDIORELAY_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$AUDIORELAY_INSTALL_DIR"
-  sudo chmod u+rwX "$AUDIORELAY_INSTALL_DIR"
-  sudo chmod 755 "$AUDIORELAY_INSTALL_DIR/bin/AudioRelay"
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$work" "$AUDIORELAY_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$AUDIORELAY_INSTALL_DIR/bin/AudioRelay" || return 1
 
-  sudo tee /usr/local/bin/audiorelay >/dev/null <<EOF
+  sudo tee /usr/local/bin/audiorelay >/dev/null <<EOF || return 1
 #!/bin/bash
 export _JAVA_AWT_WM_NONREPARENTING=1
 exec "$AUDIORELAY_INSTALL_DIR/bin/AudioRelay" "\$@"
 EOF
-  sudo chmod 755 /usr/local/bin/audiorelay
+  sudo chmod 755 /usr/local/bin/audiorelay || return 1
 
-  sudo tee /usr/share/applications/audiorelay.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/audiorelay.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=AudioRelay
 Comment=Stream audio between phone and PC
@@ -95,11 +95,11 @@ Type=Application
 Categories=AudioVideo;Audio;
 StartupWMClass=com-azefsw-audioconnect-desktop-app-MainKt
 EOF
-  sudo chmod 644 /usr/share/applications/audiorelay.desktop
+  sudo chmod 644 /usr/share/applications/audiorelay.desktop || return 1
 
   icon="$AUDIORELAY_INSTALL_DIR/lib/AudioRelay.png"
   if [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/audiorelay.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/audiorelay.png || return 1
   fi
 
   rm -rf "$work" "$AUDIORELAY_DOWNLOAD" "$AUDIORELAY_API_JSON"
@@ -177,6 +177,8 @@ install_audiorelay() {
   fi
 
   log "Verified AudioRelay tarball ($file_size bytes); extracting to $AUDIORELAY_INSTALL_DIR"
+
+  close_running_app "AudioRelay" "$AUDIORELAY_INSTALL_DIR"
 
   run_step "install AudioRelay" install_audiorelay_files
   run_step "allow AudioRelay through UFW" audiorelay_ufw

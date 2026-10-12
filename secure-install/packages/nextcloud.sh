@@ -10,6 +10,7 @@ NEXTCLOUD_GPG_HOME="$STATE_DIR/nextcloud-gnupg-$TIMESTAMP"
 NEXTCLOUD_ICON_DIR="$STATE_DIR/nextcloud-icon-$TIMESTAMP"
 NEXTCLOUD_DOWNLOAD_URL=""
 NEXTCLOUD_GPG_KEY_URL="https://nextcloud.com/nextcloud.asc"
+register_update_check nextcloud "$NEXTCLOUD_DOWNLOAD"
 # Nextcloud Security <security@nextcloud.com>; pin so a swapped key file cannot pass.
 NEXTCLOUD_GPG_FINGERPRINT="28806A878AE423A28372792ED75899B9A724937A"
 
@@ -286,6 +287,8 @@ install_nextcloud() {
 
   chmod 700 "$NEXTCLOUD_DOWNLOAD"
   log "Verified Nextcloud AppImage ($file_size bytes); installing to $NEXTCLOUD_INSTALL_DIR"
+
+  close_running_app "Nextcloud" "$NEXTCLOUD_INSTALL_DIR"
 
   run_step "install Nextcloud desktop AppImage" install_nextcloud_files
 }

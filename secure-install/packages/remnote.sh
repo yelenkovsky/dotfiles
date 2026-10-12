@@ -9,20 +9,10 @@ REMNOTE_INSTALL_DIR="/opt/remnote"
 REMNOTE_APPIMAGE_NAME="RemNote.AppImage"
 REMNOTE_DOWNLOAD="$STATE_DIR/RemNote-$TIMESTAMP.AppImage"
 REMNOTE_ICON_DIR="$STATE_DIR/remnote-icon-$TIMESTAMP"
+register_update_check remnote "$REMNOTE_DOWNLOAD"
 
 download_remnote_appimage() {
-  if command -v curl >/dev/null 2>&1; then
-    curl -fL --retry 3 --retry-delay 2 -A "$REMNOTE_USER_AGENT" -o "$REMNOTE_DOWNLOAD" "$REMNOTE_DOWNLOAD_URL"
-    return
-  fi
-
-  if command -v wget >/dev/null 2>&1; then
-    wget --tries=3 -U "$REMNOTE_USER_AGENT" -O "$REMNOTE_DOWNLOAD" "$REMNOTE_DOWNLOAD_URL"
-    return
-  fi
-
-  log "Missing required command: curl or wget"
-  return 127
+  download_url_to_file "$REMNOTE_DOWNLOAD" "$REMNOTE_DOWNLOAD_URL" "$REMNOTE_USER_AGENT"
 }
 
 extract_remnote_icon() {
@@ -121,6 +111,8 @@ install_remnote() {
 
   chmod 700 "$REMNOTE_DOWNLOAD"
   log "Verified RemNote AppImage ($file_size bytes); installing to $REMNOTE_INSTALL_DIR"
+
+  close_running_app "RemNote" "$REMNOTE_INSTALL_DIR"
 
   run_step "install RemNote AppImage" install_remnote_files
 }

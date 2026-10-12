@@ -10,6 +10,7 @@ PROTON_BRIDGE_GPG_KEY="$STATE_DIR/proton-bridge-signing-key-$TIMESTAMP.gpg"
 PROTON_BRIDGE_GPG_HOME="$STATE_DIR/proton-bridge-gnupg-$TIMESTAMP"
 PROTON_BRIDGE_INSTALL_DIR="/opt/proton-bridge"
 PROTON_BRIDGE_DOWNLOAD_URL=""
+register_update_check proton-bridge "$PROTON_BRIDGE_DEB"
 # Vendor PKGBUILD runtime dep for the `bridge` backend (libfido2.so.1).
 PROTON_BRIDGE_RUNTIME_PACKAGES=(
   libfido2
@@ -139,14 +140,13 @@ install_proton_bridge_files() {
     return 1
   fi
 
-  sudo mkdir -p "$PROTON_BRIDGE_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$PROTON_BRIDGE_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$PROTON_BRIDGE_INSTALL_DIR"
-  sudo chmod u+rwX "$PROTON_BRIDGE_INSTALL_DIR"
-  sudo chmod 755 "$PROTON_BRIDGE_INSTALL_DIR/proton-bridge"
-  sudo ln -sfn "$PROTON_BRIDGE_INSTALL_DIR/proton-bridge" /usr/local/bin/protonmail-bridge
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$PROTON_BRIDGE_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$PROTON_BRIDGE_INSTALL_DIR/proton-bridge" || return 1
+  sudo ln -sfn "$PROTON_BRIDGE_INSTALL_DIR/proton-bridge" /usr/local/bin/protonmail-bridge || return 1
 
-  sudo tee /usr/share/applications/protonmail-bridge.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/protonmail-bridge.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Type=Application
 Version=1.1
@@ -159,16 +159,16 @@ Terminal=false
 Categories=Office;Email;Network;
 StartupWMClass=Proton Mail Bridge
 EOF
-  sudo chmod 644 /usr/share/applications/protonmail-bridge.desktop
+  sudo chmod 644 /usr/share/applications/protonmail-bridge.desktop || return 1
 
   icon="$(find "$work" -type f \( -name 'protonmail-bridge.svg' -o -name 'protonmail-bridge.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
     case "$icon" in
       *.svg)
-        sudo install -D -m 644 "$icon" /usr/share/icons/hicolor/scalable/apps/protonmail-bridge.svg
+        sudo install -D -m 644 "$icon" /usr/share/icons/hicolor/scalable/apps/protonmail-bridge.svg || return 1
         ;;
       *)
-        sudo install -D -m 644 "$icon" /usr/share/pixmaps/protonmail-bridge.png
+        sudo install -D -m 644 "$icon" /usr/share/pixmaps/protonmail-bridge.png || return 1
         ;;
     esac
   fi
@@ -250,6 +250,8 @@ install_proton_bridge() {
   fi
 
   log "Verified Proton Mail Bridge .deb ($file_size bytes); extracting to $PROTON_BRIDGE_INSTALL_DIR"
+
+  close_running_app "Proton Mail Bridge" "$PROTON_BRIDGE_INSTALL_DIR"
 
   run_step "install Proton Mail Bridge" install_proton_bridge_files
 }

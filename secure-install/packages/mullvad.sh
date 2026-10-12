@@ -21,6 +21,7 @@ MULLVAD_RUNTIME_PACKAGES=(
   libxss
   nss
 )
+register_update_check mullvad "$MULLVAD_DEB"
 
 resolve_mullvad_deb_url() {
   local json="$STATE_DIR/mullvad-releases-$TIMESTAMP.json"
@@ -202,13 +203,9 @@ install_mullvad_files() {
     return 1
   fi
 
-  # A running mullvad-gui keeps its inode mapped, so in-place cp fails with
-  # ETXTBSY and leaves a mixed Electron tree (V8 binary vs snapshot mismatch).
-  pkill -f '/opt/Mullvad VPN/mullvad-gui' >/dev/null 2>&1 || true
-  sudo rm -rf "$MULLVAD_INSTALL_DIR"
-  sudo mkdir -p "$MULLVAD_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$MULLVAD_INSTALL_DIR"/ || return 1
-  sudo chmod 755 "$MULLVAD_INSTALL_DIR/mullvad-vpn"
+  # close_running_app has already closed mullvad-gui. The tree stays root-owned.
+  replace_install_tree "$appdir" "$MULLVAD_INSTALL_DIR" "" || return 1
+  sudo chmod 755 "$MULLVAD_INSTALL_DIR/mullvad-vpn" || return 1
 
   for bin in mullvad mullvad-daemon mullvad-exclude mullvad-problem-report; do
     if [ -f "$work/usr/bin/$bin" ]; then
@@ -367,6 +364,8 @@ install_mullvad() {
   fi
 
   log "Verified Mullvad VPN .deb ($file_size bytes); extracting to $MULLVAD_INSTALL_DIR"
+
+  close_running_app "Mullvad VPN app" "$MULLVAD_INSTALL_DIR"
 
   run_step "install Mullvad VPN" install_mullvad_files
 }

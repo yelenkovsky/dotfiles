@@ -7,6 +7,7 @@ BETTERBIRD_DOWNLOAD="$STATE_DIR/betterbird-$TIMESTAMP.tar.xz"
 BETTERBIRD_SHA256_FILE="$STATE_DIR/betterbird-$TIMESTAMP.sha256"
 BETTERBIRD_DOWNLOAD_URL=""
 BETTERBIRD_SHA256=""
+register_update_check betterbird "$BETTERBIRD_DOWNLOAD"
 
 resolve_betterbird_download() {
   local filename=""
@@ -80,14 +81,13 @@ install_betterbird_files() {
     return 1
   fi
 
-  sudo mkdir -p "$BETTERBIRD_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$BETTERBIRD_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$BETTERBIRD_INSTALL_DIR"
-  sudo chmod u+rwX "$BETTERBIRD_INSTALL_DIR"
-  sudo chmod 755 "$BETTERBIRD_INSTALL_DIR/betterbird"
-  sudo ln -sfn "$BETTERBIRD_INSTALL_DIR/betterbird" /usr/local/bin/betterbird
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$BETTERBIRD_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$BETTERBIRD_INSTALL_DIR/betterbird" || return 1
+  sudo ln -sfn "$BETTERBIRD_INSTALL_DIR/betterbird" /usr/local/bin/betterbird || return 1
 
-  sudo tee /usr/share/applications/betterbird.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/betterbird.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Betterbird
 GenericName=Mail Client
@@ -101,11 +101,11 @@ MimeType=x-scheme-handler/mailto;x-scheme-handler/mid;message/rfc822;
 StartupWMClass=betterbird
 StartupNotify=true
 EOF
-  sudo chmod 644 /usr/share/applications/betterbird.desktop
+  sudo chmod 644 /usr/share/applications/betterbird.desktop || return 1
 
   icon="$(find "$appdir" -type f \( -name 'default128.png' -o -name 'betterbird.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/betterbird.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/betterbird.png || return 1
   fi
 
   rm -rf "$work" "$BETTERBIRD_DOWNLOAD" "$BETTERBIRD_SHA256_FILE"
@@ -165,6 +165,8 @@ install_betterbird() {
   fi
 
   log "Verified Betterbird SHA-256; extracting to $BETTERBIRD_INSTALL_DIR"
+
+  close_running_app "Betterbird" "$BETTERBIRD_INSTALL_DIR"
 
   run_step "install Betterbird" install_betterbird_files
 }

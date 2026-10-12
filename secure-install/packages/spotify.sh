@@ -25,6 +25,7 @@ SPOTIFY_RUNTIME_PACKAGES=(
   nss
   xdg-utils
 )
+register_update_check spotify "$SPOTIFY_DEB"
 
 download_spotify_metadata() {
   download_url_to_file "$SPOTIFY_PACKAGES" "$SPOTIFY_PACKAGES_URL"
@@ -161,18 +162,17 @@ install_spotify_files() {
     return 1
   fi
 
-  sudo mkdir -p "$SPOTIFY_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$SPOTIFY_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$SPOTIFY_INSTALL_DIR"
-  sudo chmod u+rwX "$SPOTIFY_INSTALL_DIR"
-  sudo chmod 755 "$SPOTIFY_INSTALL_DIR/spotify"
-  sudo tee /usr/local/bin/spotify >/dev/null <<EOF
+  # Stage, swap and only then drop the old tree, so a failed copy keeps the
+  # working install and a running app never sees a half-copied directory.
+  replace_install_tree "$appdir" "$SPOTIFY_INSTALL_DIR" "$owner:$group" || return 1
+  sudo chmod 755 "$SPOTIFY_INSTALL_DIR/spotify" || return 1
+  sudo tee /usr/local/bin/spotify >/dev/null <<EOF || return 1
 #!/bin/bash
 exec $SPOTIFY_INSTALL_DIR/spotify --no-sandbox "\$@"
 EOF
-  sudo chmod 755 /usr/local/bin/spotify
+  sudo chmod 755 /usr/local/bin/spotify || return 1
 
-  sudo tee /usr/share/applications/spotify.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/spotify.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Spotify
 GenericName=Music Player
@@ -185,11 +185,11 @@ Categories=Audio;Music;Player;AudioVideo;
 MimeType=x-scheme-handler/spotify;
 StartupWMClass=spotify
 EOF
-  sudo chmod 644 /usr/share/applications/spotify.desktop
+  sudo chmod 644 /usr/share/applications/spotify.desktop || return 1
 
   icon="$(find "$work" -type f \( -name 'spotify-linux-*.png' -o -name 'spotify-client.png' -o -name 'spotify.png' \) -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
-    sudo install -D -m 644 "$icon" /usr/share/pixmaps/spotify-client.png
+    sudo install -D -m 644 "$icon" /usr/share/pixmaps/spotify-client.png || return 1
   fi
 
   rm -rf "$work" "$SPOTIFY_DEB" "$SPOTIFY_PACKAGES" "$SPOTIFY_INRELEASE" "$SPOTIFY_GPG_KEY" "$SPOTIFY_GPG_HOME"
@@ -277,6 +277,8 @@ install_spotify() {
   fi
 
   log "Verified Spotify .deb ($file_size bytes); extracting to $SPOTIFY_INSTALL_DIR"
+
+  close_running_app "Spotify" "$SPOTIFY_INSTALL_DIR"
 
   run_step "install Spotify" install_spotify_files
 }
