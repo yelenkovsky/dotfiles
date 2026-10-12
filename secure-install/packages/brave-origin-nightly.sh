@@ -9,10 +9,13 @@ BRAVE_ORIGIN_NIGHTLY_GPG_KEY="$STATE_DIR/brave-signing-key-$TIMESTAMP.asc"
 BRAVE_ORIGIN_NIGHTLY_GPG_HOME="$STATE_DIR/brave-gnupg-$TIMESTAMP"
 BRAVE_ORIGIN_NIGHTLY_DOWNLOAD_URL=""
 BRAVE_ORIGIN_NIGHTLY_SHA256=""
-BRAVE_GPG_KEY_URL="https://keys.openpgp.org/vks/v1/by-fingerprint/D16166072CACDF2C9429CBF11BF41E37D039F691"
 register_update_check brave-origin-nightly "$BRAVE_ORIGIN_NIGHTLY_DOWNLOAD"
-# Brave Linux packaging key from https://brave.com/origin/linux/nightly/
-BRAVE_GPG_FINGERPRINT="D16166072CACDF2C9429CBF11BF41E37D039F691"
+# "GitHub Checksums - Beta and Nightly Channels" on https://brave.com/signing-keys/.
+# The file holds Brave's three pre-release checksum keys; .sha256.asc files are
+# signed with the v2 key below (until 2026-10 they used the install.sh key
+# D16166072CACDF2C9429CBF11BF41E37D039F691).
+BRAVE_GPG_KEY_URL="https://brave-browser-downloads.s3.brave.com/keys/github-checksums-pre-release.asc"
+BRAVE_GPG_FINGERPRINT="2739F6DFC3077EA8A193A2B23DCB1DA4732251B4"
 
 resolve_brave_origin_nightly_url() {
   local json="$STATE_DIR/brave-origin-nightly-releases-$TIMESTAMP.json"
@@ -66,9 +69,11 @@ verify_brave_origin_nightly() {
     gpg --batch --with-colons --fingerprint
   )" || return 1
 
-  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
+  # Only a signature by the pinned key counts (VALIDSIG below); the other keys in
+  # the file are imported but never trusted on their own.
+  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: -v want="$BRAVE_GPG_FINGERPRINT" '/^fpr:/ && $10 == want { print $10; exit }')"
   if [ "$imported_fingerprint" != "$BRAVE_GPG_FINGERPRINT" ]; then
-    log "Brave signing key fingerprint mismatch (expected $BRAVE_GPG_FINGERPRINT, got $imported_fingerprint)"
+    log "Brave signing key $BRAVE_GPG_FINGERPRINT not found in $BRAVE_GPG_KEY_URL"
     return 1
   fi
 
