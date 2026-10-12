@@ -87,14 +87,18 @@ install_proton_pass_files() {
   fi
   appdir="$(dirname "$binary")"
 
-  sudo mkdir -p "$PROTON_PASS_INSTALL_DIR"
-  sudo cp -a "$appdir"/. "$PROTON_PASS_INSTALL_DIR"/
-  sudo chown -R "$owner:$group" "$PROTON_PASS_INSTALL_DIR"
-  sudo chmod u+rwX "$PROTON_PASS_INSTALL_DIR"
-  sudo chmod 755 "$PROTON_PASS_INSTALL_DIR/Proton Pass"
-  sudo ln -sfn "$PROTON_PASS_INSTALL_DIR/Proton Pass" /usr/local/bin/proton-pass
+  # Remove the old tree instead of copying over it: overwriting a running
+  # binary fails with "Text file busy", while unlinking it does not, and a
+  # fresh tree drops files left over from older releases.
+  sudo rm -rf "$PROTON_PASS_INSTALL_DIR" || return 1
+  sudo mkdir -p "$PROTON_PASS_INSTALL_DIR" || return 1
+  sudo cp -a "$appdir"/. "$PROTON_PASS_INSTALL_DIR"/ || return 1
+  sudo chown -R "$owner:$group" "$PROTON_PASS_INSTALL_DIR" || return 1
+  sudo chmod u+rwX "$PROTON_PASS_INSTALL_DIR" || return 1
+  sudo chmod 755 "$PROTON_PASS_INSTALL_DIR/Proton Pass" || return 1
+  sudo ln -sfn "$PROTON_PASS_INSTALL_DIR/Proton Pass" /usr/local/bin/proton-pass || return 1
 
-  sudo tee /usr/share/applications/proton-pass.desktop >/dev/null <<EOF
+  sudo tee /usr/share/applications/proton-pass.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Proton Pass
 Comment=Proton Pass desktop application
@@ -106,7 +110,7 @@ StartupNotify=true
 Categories=Utility;
 StartupWMClass=Proton Pass
 EOF
-  sudo chmod 644 /usr/share/applications/proton-pass.desktop
+  sudo chmod 644 /usr/share/applications/proton-pass.desktop || return 1
 
   icon="$(find "$work" -type f -name 'proton-pass.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
@@ -183,6 +187,10 @@ install_proton_pass() {
   fi
 
   log "Verified Proton Pass .deb SHA-512; extracting to $PROTON_PASS_INSTALL_DIR"
+
+  if app_processes_running "$PROTON_PASS_INSTALL_DIR"; then
+    run_step "close running Proton Pass" stop_app_processes "Proton Pass" "$PROTON_PASS_INSTALL_DIR"
+  fi
 
   run_step "install Proton Pass desktop" install_proton_pass_files
 }

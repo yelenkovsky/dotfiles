@@ -159,6 +159,41 @@ install_package_group() {
   done
 }
 
+app_processes_running() {
+  pgrep -u "$USER" -f "^$1/" >/dev/null 2>&1
+}
+
+# Close every process of ours started from an install dir, so its files can be
+# replaced. Asks politely first (SIGTERM, lets Electron apps save state), then
+# forces anything still alive after the timeout.
+stop_app_processes() {
+  local label="$1"
+  local install_dir="$2"
+  local timeout="${3:-10}"
+  local waited=0
+
+  app_processes_running "$install_dir" || return 0
+
+  log "Closing running $label"
+  pkill -TERM -u "$USER" -f "^$install_dir/" || true
+
+  while app_processes_running "$install_dir" && [ "$waited" -lt "$timeout" ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  if app_processes_running "$install_dir"; then
+    log "$label did not exit after ${timeout}s; killing it"
+    pkill -KILL -u "$USER" -f "^$install_dir/" || true
+    sleep 1
+  fi
+
+  if app_processes_running "$install_dir"; then
+    log "Could not close $label"
+    return 1
+  fi
+}
+
 download_url_to_file() {
   local dest="$1"
   local url="$2"
