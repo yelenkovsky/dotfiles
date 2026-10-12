@@ -112,12 +112,20 @@ install_brave_origin_nightly_files() {
   mkdir -p "$work"
   bsdtar -C "$work" -xf "$BRAVE_ORIGIN_NIGHTLY_DOWNLOAD"
 
-  binary="$(find "$work" -type f \( -name brave-origin-nightly -o -name brave \) | head -1)"
-  if [ -z "$binary" ]; then
-    log "Brave Origin Nightly zip does not contain a brave binary"
+  # The app sits at the zip root: the `brave` ELF plus Brave's own launcher
+  # script `brave-origin-nightly`. Other files share those names
+  # (cron/brave-origin-nightly, apparmor.d/brave-origin-nightly), so never
+  # search by name; a search picked those and installed a text file.
+  appdir="$work"
+  binary="$appdir/brave-origin-nightly"
+  if [ ! -f "$appdir/brave" ] || [ "$(head -c 4 "$appdir/brave")" != $'\x7fELF' ]; then
+    log "Brave Origin Nightly zip has no brave ELF binary at its root"
     return 1
   fi
-  appdir="$(dirname "$binary")"
+  if [ ! -f "$binary" ] || [ "$(head -c 2 "$binary")" != '#!' ]; then
+    log "Brave Origin Nightly zip has no brave-origin-nightly launcher script at its root"
+    return 1
+  fi
 
   # Stage, swap and only then drop the old tree, so a failed copy keeps the
   # working install and a running app never sees a half-copied directory.
