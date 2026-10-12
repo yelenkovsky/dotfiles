@@ -131,13 +131,33 @@ install_brave_origin_nightly_files() {
   # working install and a running app never sees a half-copied directory.
   replace_install_tree "$appdir" "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR" "$owner:$group" || return 1
   sudo chmod 755 "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary")" || return 1
-  sudo ln -sfn "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary")" /usr/local/bin/brave-origin-nightly || return 1
+
+  # Our launcher, like the AUR package's: read one flag per line from
+  # ~/.config/brave-origin-nightly-flags.conf (e.g. --disable-accelerated-video-decode,
+  # which keeps videos from freezing on this hybrid NVIDIA/AMD laptop), then run
+  # Brave's own wrapper. No --no-sandbox: unprivileged user namespaces give
+  # Chromium its sandbox. Remove any old symlink first so tee cannot follow it.
+  sudo rm -f /usr/local/bin/brave-origin-nightly || return 1
+  sudo tee /usr/local/bin/brave-origin-nightly >/dev/null <<EOF || return 1
+#!/bin/bash
+flags_file="\${XDG_CONFIG_HOME:-\$HOME/.config}/brave-origin-nightly-flags.conf"
+flags=()
+if [ -f "\$flags_file" ]; then
+  while IFS= read -r line; do
+    line="\${line%%#*}"
+    read -r -a words <<<"\$line"
+    flags+=("\${words[@]}")
+  done <"\$flags_file"
+fi
+exec "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary")" "\${flags[@]}" "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/brave-origin-nightly || return 1
 
   sudo tee /usr/share/applications/brave-origin-nightly.desktop >/dev/null <<EOF || return 1
 [Desktop Entry]
 Name=Brave Origin Nightly
 Comment=Brave Origin Nightly web browser
-Exec=$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR/$(basename "$binary") --no-sandbox %U
+Exec=/usr/local/bin/brave-origin-nightly %U
 Icon=brave-origin-nightly
 Terminal=false
 Type=Application
