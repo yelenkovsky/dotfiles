@@ -44,14 +44,8 @@ link_if_present ".vimrc" "$HOME/.vimrc"
 link_if_present ".gitconfig" "$HOME/.gitconfig"
 
 echo ""
-echo "Cursor"
-link_if_present ".config/Cursor/settings.json" "$HOME/.config/Cursor/User/settings.json"
-link_if_present ".config/Cursor/keybindings.json" "$HOME/.config/Cursor/User/keybindings.json"
-link_if_present ".config/Cursor/snippets" "$HOME/.config/Cursor/User/snippets"
+echo "Claude Code"
 link_if_present ".claude/skills/add-secure-install-app" "$HOME/.claude/skills/add-secure-install-app"
-if [ -f "$DOTFILES_DIR/.config/Cursor/extensions.txt" ]; then
-    echo "Extension list found (install from Cursor marketplace as needed)"
-fi
 
 echo ""
 echo "Shell, terminal, prompt"

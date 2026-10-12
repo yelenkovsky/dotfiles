@@ -1,6 +1,6 @@
 # Dotfiles
 
-Public Fish, Ghostty, Vim, and Cursor setup for a Linux desktop. Package installs and home-directory symlinks are separate scripts.
+Public Fish, Ghostty and Vim setup for a Linux desktop. Package installs and home-directory symlinks are separate scripts.
 
 ```mermaid
 flowchart LR
@@ -8,7 +8,7 @@ flowchart LR
   secure["secure-install.sh<br/>one package, a group, or all"]
   link["install.sh<br/>symlink configs into $HOME"]
   system["System<br/>pacman, AUR, /opt, /usr/local/bin"]
-  home["Home<br/>fish, ghostty, vim, Cursor"]
+  home["Home<br/>fish, ghostty, vim"]
 
   clone --> secure --> system
   clone --> link --> home
@@ -42,7 +42,6 @@ chmod +x install.sh secure-install.sh setup/*.sh
 | `.config/ghostty` | Terminal |
 | `.config/eza` | `ls` replacement theme |
 | `.config/gh/config.yml` | GitHub CLI settings. Account credentials stay in a local `hosts.yml` |
-| `.config/Cursor/` | Editor settings, keybindings, snippets |
 | `.claude/skills/add-secure-install-app` | Claude Code skill for adding apps to `secure-install/packages/`, linked at `~/.claude/skills/add-secure-install-app` |
 
 Yazi config, Omarchy theme hooks, and `plasma-themes/` stay in the clone. Link those paths yourself when you want them in `$HOME`.

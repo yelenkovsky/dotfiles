@@ -60,7 +60,7 @@ Examples:
   $SCRIPT_NAME --yes
   $SCRIPT_NAME remnote
   $SCRIPT_NAME desktop aur
-  $SCRIPT_NAME --only remnote cursor
+  $SCRIPT_NAME --only remnote slack
   $SCRIPT_NAME --skip remnote slack
   $SCRIPT_NAME --check
 

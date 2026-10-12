@@ -1,6 +1,3 @@
-" Mapped from Cursor User settings.json (vim.* / relative line numbers)
-" Cursor does not read this file.
-
 " editor.lineNumbers: "relative"
 set number
 set relativenumber
@@ -11,8 +8,6 @@ set clipboard^=unnamed,unnamedplus
 " vim.hlsearch / vim.incsearch
 set hlsearch
 set incsearch
-
-" "vim.leader": "<space>"  (commented out in Cursor; leave default)
 
 " vim.highlightedyank.enable + duration 200
 if has('nvim')
