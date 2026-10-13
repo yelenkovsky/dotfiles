@@ -61,11 +61,23 @@ install_grayjay_files() {
   replace_install_tree "$appdir" "$GRAYJAY_INSTALL_DIR" "$owner:$group" || return 1
   sudo chmod 755 "$GRAYJAY_INSTALL_DIR/Grayjay" || return 1
   # CEF resolves resources from cwd; chrome-sandbox cannot be setuid on a
-  # user-owned tree.
+  # user-owned tree. Grayjay passes its own arguments on to CEF, so extra
+  # Chromium flags come from ~/.config/grayjay-flags.conf, one per line (e.g.
+  # --disable-accelerated-video-decode: on the AMD iGPU decoded frames fail to
+  # import into GL and videos play sound only).
   sudo tee /usr/local/bin/grayjay >/dev/null <<EOF || return 1
 #!/bin/bash
+flags_file="\${XDG_CONFIG_HOME:-\$HOME/.config}/grayjay-flags.conf"
+flags=()
+if [ -f "\$flags_file" ]; then
+  while IFS= read -r line; do
+    line="\${line%%#*}"
+    read -r -a words <<<"\$line"
+    flags+=("\${words[@]}")
+  done <"\$flags_file"
+fi
 cd "$GRAYJAY_INSTALL_DIR" || exit 1
-exec ./Grayjay --no-sandbox "\$@"
+exec ./Grayjay --no-sandbox "\${flags[@]}" "\$@"
 EOF
   sudo chmod 755 /usr/local/bin/grayjay || return 1
 
@@ -141,7 +153,7 @@ install_grayjay() {
 
   log "Verified Grayjay zip ($file_size bytes); extracting to $GRAYJAY_INSTALL_DIR"
 
-  close_running_app "Grayjay" "$GRAYJAY_INSTALL_DIR"
+  close_running_app --relaunch /usr/local/bin/grayjay "Grayjay" "$GRAYJAY_INSTALL_DIR"
 
   run_step "install Grayjay" install_grayjay_files
 }

@@ -307,14 +307,19 @@ REOPEN_UNITS=()
 REOPEN_COMMANDS=()
 
 # Note how each running app was started, before it is closed. A process whose
-# parent is not part of the app is a launch point: if it belongs to a systemd
-# service (e.g. an XDG autostart unit) that service is restarted; otherwise
-# (launcher, keybinding, terminal) its original command line is run again.
+# parent is not part of the app is a launch point. If it belongs to a
+# persistent systemd service (e.g. an XDG autostart unit) that service is
+# restarted. Otherwise (keybinding, launcher, terminal, or a one-off
+# systemd-run unit that is gone once the app exits) the app is run again:
+# through relaunch when the installer names its launcher, so the launcher's
+# flags and working directory apply, else with the original command line.
 remember_app_launches() {
   local label="$1"
-  shift
+  local relaunch="$2"
+  shift 2
   local -A app=()
-  local pid ppid unit cmd arg
+  local pid ppid unit cmd arg first cwd
+  local need_command=false
 
   for pid in $(app_process_pids "$@"); do
     app[$pid]=1
@@ -325,19 +330,36 @@ remember_app_launches() {
     [ -z "${app[$ppid]+x}" ] || continue
 
     unit="$(sed -n 's|^0::.*/||p' "/proc/$pid/cgroup" 2>/dev/null)"
-    case "$unit" in
-      *.service)
-        [[ " ${REOPEN_UNITS[*]} " == *" $unit "* ]] || REOPEN_UNITS+=("$unit")
-        ;;
-      *)
-        cmd=""
-        while IFS= read -r -d '' arg; do
-          printf -v cmd '%s%q ' "$cmd" "$arg"
-        done <"/proc/$pid/cmdline" 2>/dev/null
-        [ -n "$cmd" ] && REOPEN_COMMANDS+=("$cmd")
-        ;;
-    esac
+    if [[ "$unit" == *.service ]] \
+      && [ "$(systemctl --user show -p Transient --value "$unit" 2>/dev/null)" = no ]; then
+      [[ " ${REOPEN_UNITS[*]} " == *" $unit "* ]] || REOPEN_UNITS+=("$unit")
+      continue
+    fi
+
+    if [ -n "$relaunch" ]; then
+      need_command=true
+      continue
+    fi
+
+    # Relative program paths (e.g. ./Grayjay after the launcher's cd) are
+    # resolved against the process's working directory.
+    cmd=""
+    first=true
+    cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
+    while IFS= read -r -d '' arg; do
+      if [ "$first" = true ] && [[ "$arg" != /* && "$arg" == */* ]] && [ -n "$cwd" ]; then
+        arg="$cwd/${arg#./}"
+      fi
+      first=false
+      printf -v cmd '%s%q ' "$cmd" "$arg"
+    done <"/proc/$pid/cmdline" 2>/dev/null
+    [ -n "$cmd" ] && REOPEN_COMMANDS+=("$cmd")
   done
+
+  if [ "$need_command" = true ]; then
+    printf -v cmd '%q' "$relaunch"
+    REOPEN_COMMANDS+=("$cmd")
+  fi
 
   if [ "${#REOPEN_UNITS[@]}" -gt 0 ] || [ "${#REOPEN_COMMANDS[@]}" -gt 0 ]; then
     REOPEN_LABELS+=("$label")
@@ -377,7 +399,14 @@ reopen_closed_apps() {
 # Installers call this right before their install step, after the download has
 # been verified, so a failed download never closes anything. Whatever it
 # closes is reopened after the package finishes (see reopen_closed_apps).
+#
+# Usage: close_running_app [--relaunch LAUNCHER] LABEL PATH...
 close_running_app() {
+  local relaunch=""
+  if [ "${1-}" = --relaunch ]; then
+    relaunch="$2"
+    shift 2
+  fi
   local label="$1"
   shift
 
@@ -388,7 +417,7 @@ close_running_app() {
   fi
 
   if [ "$DRY_RUN" != true ] && ! app_hosts_installer "$@"; then
-    remember_app_launches "$label" "$@"
+    remember_app_launches "$label" "$relaunch" "$@"
   fi
 
   run_step "close running $label" stop_app_processes "$label" "$@"
