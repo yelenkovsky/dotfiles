@@ -42,6 +42,7 @@ echo ""
 echo "Editor and git"
 link_if_present ".vimrc" "$HOME/.vimrc"
 link_if_present ".gitconfig" "$HOME/.gitconfig"
+link_if_present ".config/git/allowed_signers" "$HOME/.config/git/allowed_signers"
 
 echo ""
 echo "Claude Code"
