@@ -60,6 +60,26 @@ download_proton_pass_deb() {
   download_url_to_file "$PROTON_PASS_DEB" "$PROTON_PASS_DEB_URL"
 }
 
+# Electron's openAtLogin (Proton Pass's "start at login") does nothing on
+# Linux, so add an XDG autostart entry. Proton Pass also runs the SSH agent
+# that git signs commits with, so it should be up after every login.
+write_proton_pass_autostart() {
+  local dir="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+
+  mkdir -p "$dir"
+  cat >"$dir/proton-pass.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Proton Pass
+Comment=Password manager and SSH agent
+Exec="$PROTON_PASS_INSTALL_DIR/Proton Pass" --no-sandbox
+Icon=proton-pass
+Terminal=false
+X-GNOME-Autostart-enabled=true
+EOF
+  systemctl --user daemon-reload 2>/dev/null || true
+}
+
 install_proton_pass_files() {
   local owner="$USER"
   local group
@@ -107,6 +127,7 @@ Categories=Utility;
 StartupWMClass=Proton Pass
 EOF
   sudo chmod 644 /usr/share/applications/proton-pass.desktop || return 1
+  write_proton_pass_autostart
 
   icon="$(find "$work" -type f -name 'proton-pass.png' -printf '%s %p\n' 2>/dev/null | sort -nr | awk 'NR==1 { $1=""; sub(/^ /, ""); print }')"
   if [ -n "$icon" ] && [ -f "$icon" ]; then
