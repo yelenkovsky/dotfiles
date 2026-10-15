@@ -161,8 +161,14 @@ check_for_updates() {
     fi
   done
 
-  printf '%s\n' "${updates[@]}" >"$RECORD_DIR/updates-available.txt"
-  sed -i '/^$/d' "$RECORD_DIR/updates-available.txt"
+  # Merge: a check of some packages (--only) must not forget pending updates
+  # of the others. Drop the checked ids from the list, then add what is new.
+  local list="$RECORD_DIR/updates-available.txt"
+  {
+    [ -f "$list" ] && grep -vxF -f <(printf '%s\n' "$@") "$list" || true
+    printf '%s\n' "${updates[@]}"
+  } | sed '/^$/d' | sort -u >"$list.tmp"
+  mv "$list.tmp" "$list"
 
   echo
   if [ "${#updates[@]}" -gt 0 ]; then

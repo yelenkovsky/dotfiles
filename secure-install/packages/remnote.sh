@@ -9,7 +9,9 @@ REMNOTE_INSTALL_DIR="/opt/remnote"
 REMNOTE_APPIMAGE_NAME="RemNote.AppImage"
 REMNOTE_DOWNLOAD="$STATE_DIR/RemNote-$TIMESTAMP.AppImage"
 REMNOTE_ICON_DIR="$STATE_DIR/remnote-icon-$TIMESTAMP"
-register_update_check remnote "$REMNOTE_DOWNLOAD"
+# No register_update_check: RemNote updates itself in the app (its own updater
+# runs at start-up and the user-owned /opt/remnote is writable), so the daily
+# --check would only report releases the app installs on its own.
 
 download_remnote_appimage() {
   download_url_to_file "$REMNOTE_DOWNLOAD" "$REMNOTE_DOWNLOAD_URL" "$REMNOTE_USER_AGENT"
