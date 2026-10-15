@@ -42,6 +42,7 @@ ZOOM_RUNTIME_PACKAGES=(
   xdg-utils
 )
 register_update_check zoom "$ZOOM_DEB"
+register_changelog zoom 'https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061222'
 
 resolve_zoom_deb_url() {
   local url=""

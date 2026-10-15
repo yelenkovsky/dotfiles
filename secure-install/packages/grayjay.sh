@@ -18,6 +18,7 @@ GRAYJAY_RUNTIME_PACKAGES=(
   xdg-utils
 )
 register_update_check grayjay "$GRAYJAY_DOWNLOAD"
+register_changelog grayjay 'https://gitlab.futo.org/videostreaming/Grayjay.Desktop/-/tags'
 
 download_grayjay_zip() {
   download_url_to_file "$GRAYJAY_DOWNLOAD" "$GRAYJAY_DOWNLOAD_URL"

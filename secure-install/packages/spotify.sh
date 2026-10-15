@@ -26,6 +26,7 @@ SPOTIFY_RUNTIME_PACKAGES=(
   xdg-utils
 )
 register_update_check spotify "$SPOTIFY_DEB"
+# No register_changelog: Spotify publishes no Linux release notes.
 
 download_spotify_metadata() {
   download_url_to_file "$SPOTIFY_PACKAGES" "$SPOTIFY_PACKAGES_URL"

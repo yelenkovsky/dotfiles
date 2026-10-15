@@ -11,6 +11,7 @@ NEXTCLOUD_ICON_DIR="$STATE_DIR/nextcloud-icon-$TIMESTAMP"
 NEXTCLOUD_DOWNLOAD_URL=""
 NEXTCLOUD_GPG_KEY_URL="https://nextcloud.com/nextcloud.asc"
 register_update_check nextcloud "$NEXTCLOUD_DOWNLOAD"
+register_changelog nextcloud 'https://github.com/nextcloud-releases/desktop/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/nextcloud-releases/desktop/releases'
 # Nextcloud Security <security@nextcloud.com>; pin so a swapped key file cannot pass.
 NEXTCLOUD_GPG_FINGERPRINT="28806A878AE423A28372792ED75899B9A724937A"
 

@@ -14,6 +14,7 @@ ELEMENT_INSTALL_DIR="/opt/element-desktop"
 ELEMENT_DEB_URL=""
 ELEMENT_SHA256=""
 register_update_check element "$ELEMENT_DEB"
+register_changelog element 'https://github.com/element-hq/element-web/releases/tag/v{version}' 'element-desktop_([0-9.]+)_amd64' 'https://github.com/element-hq/element-web/releases'
 
 download_element_metadata() {
   download_url_to_file "$ELEMENT_PACKAGES" "$ELEMENT_PACKAGES_URL"

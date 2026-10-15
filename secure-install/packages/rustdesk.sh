@@ -20,6 +20,7 @@ RUSTDESK_RUNTIME_PACKAGES=(
   xdotool
 )
 register_update_check rustdesk "$RUSTDESK_DOWNLOAD"
+register_changelog rustdesk 'https://github.com/rustdesk/rustdesk/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/rustdesk/rustdesk/releases'
 
 resolve_rustdesk_url() {
   local json="$STATE_DIR/rustdesk-releases-$TIMESTAMP.json"

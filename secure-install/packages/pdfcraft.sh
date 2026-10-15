@@ -17,6 +17,7 @@ PDFCRAFT_DOWNLOAD_URL=""
 PDFCRAFT_SUMS_URL=""
 PDFCRAFT_ASSET_NAME=""
 register_update_check pdfcraft "$PDFCRAFT_DOWNLOAD"
+register_changelog pdfcraft 'https://github.com/storytold/pdfcraft/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/storytold/pdfcraft/releases'
 
 # What the PrintCraft installer left behind. Settings in
 # ~/.local/share/printcraft are not touched: PdfCraft moves them on first start.

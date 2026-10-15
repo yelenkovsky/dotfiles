@@ -6,6 +6,7 @@ PROTON_DRIVE_INDEX="$STATE_DIR/proton-drive-index-$TIMESTAMP.html"
 PROTON_DRIVE_DOWNLOAD="$STATE_DIR/proton-drive-$TIMESTAMP"
 PROTON_DRIVE_BIN="/usr/local/bin/proton-drive"
 register_update_check proton-drive "$PROTON_DRIVE_DOWNLOAD"
+register_changelog proton-drive 'https://github.com/ProtonDriveApps/sdk/blob/main/cli/CHANGELOG.md'
 
 download_proton_drive_index() {
   download_url_to_file "$PROTON_DRIVE_INDEX" "$PROTON_DRIVE_INDEX_URL"

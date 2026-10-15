@@ -11,6 +11,7 @@ DEBTAP_RUNTIME_PACKAGES=(
   file
 )
 register_update_check debtap "$DEBTAP_TARBALL"
+# No register_changelog: releases carry no notes.
 
 resolve_debtap_url() {
   local json="$STATE_DIR/debtap-releases-$TIMESTAMP.json"

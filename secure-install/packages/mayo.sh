@@ -16,6 +16,7 @@ MAYO_ASSET_NAME=""
 MAYO_CONV_DOWNLOAD_URL=""
 MAYO_CONV_ASSET_NAME=""
 register_update_check mayo "$MAYO_DOWNLOAD"
+register_changelog mayo 'https://github.com/fougue/mayo/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/fougue/mayo/releases'
 
 resolve_mayo_urls() {
   local json="$STATE_DIR/mayo-releases-$TIMESTAMP.json"

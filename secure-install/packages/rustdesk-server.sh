@@ -11,6 +11,7 @@ RUSTDESK_SERVER_LOG_DIR="/var/log/rustdesk-server"
 RUSTDESK_SERVER_DOWNLOAD_URL=""
 RUSTDESK_SERVER_SHA256=""
 register_update_check rustdesk-server "$RUSTDESK_SERVER_DOWNLOAD"
+register_changelog rustdesk-server 'https://github.com/rustdesk/rustdesk-server/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/rustdesk/rustdesk-server/releases'
 
 resolve_rustdesk_server_url() {
   local json="$STATE_DIR/rustdesk-server-releases-$TIMESTAMP.json"

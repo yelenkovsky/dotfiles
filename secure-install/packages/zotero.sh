@@ -6,6 +6,7 @@ ZOTERO_DOWNLOAD_URL="https://www.zotero.org/download/client/dl?channel=release&p
 ZOTERO_INSTALL_DIR="/opt/zotero"
 ZOTERO_DOWNLOAD="$STATE_DIR/zotero-$TIMESTAMP.tar.xz"
 register_update_check zotero "$ZOTERO_DOWNLOAD"
+register_changelog zotero 'https://www.zotero.org/support/changelog'
 
 download_zotero_tarball() {
   download_url_to_file "$ZOTERO_DOWNLOAD" "$ZOTERO_DOWNLOAD_URL"

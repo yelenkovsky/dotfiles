@@ -14,6 +14,7 @@ CLAUDE_DESKTOP_GPG_KEY="$STATE_DIR/claude-desktop-signing-key-$TIMESTAMP.asc"
 CLAUDE_DESKTOP_GPG_HOME="$STATE_DIR/claude-desktop-gnupg-$TIMESTAMP"
 CLAUDE_DESKTOP_DEB="$STATE_DIR/claude-desktop-$TIMESTAMP.deb"
 register_update_check claude-desktop "$CLAUDE_DESKTOP_DEB"
+register_changelog claude-desktop 'https://claude.com/docs/cowork/claude-desktop-changelog#v{version_dashes}' 'claude-desktop_([0-9.]+)_amd64' 'https://claude.com/docs/cowork/claude-desktop-changelog'
 # User prefix: sudo on this machine asks for a password, and the desktop
 # entry has to be installable without one. $HOME is not hardcoded.
 CLAUDE_DESKTOP_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/claude-desktop"

@@ -22,6 +22,7 @@ MULLVAD_RUNTIME_PACKAGES=(
   nss
 )
 register_update_check mullvad "$MULLVAD_DEB"
+register_changelog mullvad 'https://github.com/mullvad/mullvadvpn-app/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/mullvad/mullvadvpn-app/releases'
 
 resolve_mullvad_deb_url() {
   local json="$STATE_DIR/mullvad-releases-$TIMESTAMP.json"

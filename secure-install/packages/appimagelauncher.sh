@@ -7,6 +7,7 @@ APPIMAGELAUNCHER_DOWNLOAD="$STATE_DIR/appimagelauncher-$TIMESTAMP.AppImage"
 APPIMAGELAUNCHER_DOWNLOAD_URL=""
 APPIMAGELAUNCHER_SHA256=""
 register_update_check appimagelauncher "$APPIMAGELAUNCHER_DOWNLOAD"
+# No register_changelog: a rolling continuous build; its notes are only a build log.
 
 resolve_appimagelauncher_url() {
   local json="$STATE_DIR/appimagelauncher-releases-$TIMESTAMP.json"

@@ -17,6 +17,7 @@ PORTMASTER_RUNTIME_PACKAGES=(
   webkit2gtk-4.1
 )
 register_update_check portmaster "$PORTMASTER_DEB"
+register_changelog portmaster 'https://github.com/safing/portmaster/releases/tag/v{version}' 'Portmaster_([0-9.]+)_amd64' 'https://github.com/safing/portmaster/releases'
 
 download_portmaster_metadata() {
   download_url_to_file "$PORTMASTER_PAGE" "$PORTMASTER_DOWNLOAD_PAGE"

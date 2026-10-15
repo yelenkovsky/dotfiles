@@ -7,6 +7,7 @@ DBEAVER_INSTALL_DIR="/opt/dbeaver"
 DBEAVER_DOWNLOAD="$STATE_DIR/dbeaver-$TIMESTAMP.tar.gz"
 DBEAVER_SHA256_FILE="$STATE_DIR/dbeaver-$TIMESTAMP.sha256"
 register_update_check dbeaver "$DBEAVER_DOWNLOAD"
+register_changelog dbeaver 'https://github.com/dbeaver/dbeaver/releases/tag/{version}' 'dbeaver-ce-([0-9.]+)-linux' 'https://dbeaver.io/category/releases/'
 
 download_dbeaver_files() {
   download_url_to_file "$DBEAVER_DOWNLOAD" "$DBEAVER_DOWNLOAD_URL"

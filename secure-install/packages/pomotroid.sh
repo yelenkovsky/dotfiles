@@ -8,6 +8,7 @@ POMOTROID_ICON_DIR="$STATE_DIR/pomotroid-icon-$TIMESTAMP"
 POMOTROID_DOWNLOAD_URL=""
 POMOTROID_SHA256=""
 register_update_check pomotroid "$POMOTROID_DOWNLOAD"
+register_changelog pomotroid 'https://github.com/Splode/pomotroid/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/Splode/pomotroid/releases'
 
 resolve_pomotroid_url() {
   local json="$STATE_DIR/pomotroid-releases-$TIMESTAMP.json"

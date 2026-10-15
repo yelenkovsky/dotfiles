@@ -115,11 +115,36 @@ selected_packages() {
   done < <(sorted_package_ids)
 }
 
+# Desktop notification for found updates. With changelog links it offers an
+# "Open changelogs" button (notify-send waits for the click or the timeout)
+# that opens each release-notes page in the default browser.
+notify_updates() {
+  local title="$1"
+  local body="$2"
+  shift 2
+  local action="" link
+
+  if [ "$#" -eq 0 ]; then
+    notify-send -a "secure-install" -i system-software-update "$title" "$body" || true
+    return 0
+  fi
+
+  action="$(notify-send -a "secure-install" -i system-software-update \
+    -A open="Open changelogs" "$title" "$body" 2>/dev/null || true)"
+  if [ "$action" = open ]; then
+    for link in "$@"; do
+      xdg-open "$link" >/dev/null 2>&1 &
+    done
+    wait
+  fi
+}
+
 # Run the selected installers in check mode and compare what each would
 # download now with what was recorded at its last successful install.
 check_for_updates() {
-  local id current installed
-  local -a updates=() unknown=() failed=()
+  local id current installed link
+  local -a updates=() unknown=() failed=() links=()
+  local -A link_for=()
 
   # Nothing in check mode may change the system. run_step already skips
   # install steps; this catches any sudo an installer calls directly.
@@ -155,19 +180,26 @@ check_for_updates() {
       printf '%-24s %s\n' "$id" "not tracked yet"
     elif [ "$current" != "$installed" ]; then
       updates+=("$id")
-      printf '%-24s %s\n' "$id" "UPDATE AVAILABLE"
+      link="$(changelog_link "$id")"
+      link_for[$id]="$link"
+      [ -z "$link" ] || links+=("$link")
+      printf '%-24s %-17s %s\n' "$id" "UPDATE AVAILABLE" "${link:-(no changelog published)}"
     else
       printf '%-24s %s\n' "$id" "up to date"
     fi
   done
 
-  # Merge: a check of some packages (--only) must not forget pending updates
-  # of the others. Drop the checked ids from the list, then add what is new.
+  # One "id<TAB>changelog" line per pending update. Merge: a check of some
+  # packages (--only) must not forget pending updates of the others, so drop
+  # the checked ids from the list, then add what is new.
   local list="$RECORD_DIR/updates-available.txt"
   {
-    [ -f "$list" ] && grep -vxF -f <(printf '%s\n' "$@") "$list" || true
-    printf '%s\n' "${updates[@]}"
-  } | sed '/^$/d' | sort -u >"$list.tmp"
+    [ -f "$list" ] && awk -F '\t' 'NR == FNR { checked[$1] = 1; next } !($1 in checked)' \
+      <(printf '%s\n' "$@") "$list"
+    for id in "${updates[@]}"; do
+      printf '%s\t%s\n' "$id" "${link_for[$id]}"
+    done
+  } | sed '/^$/d' | sort -u -t $'\t' -k1,1 >"$list.tmp"
   mv "$list.tmp" "$list"
 
   echo
@@ -179,8 +211,7 @@ check_for_updates() {
   [ "${#unknown[@]}" -eq 0 ] || echo "Not tracked yet (install once, or run --check --mark-current): ${unknown[*]}"
 
   if [ "$NOTIFY" = true ] && [ "${#updates[@]}" -gt 0 ] && command -v notify-send >/dev/null 2>&1; then
-    notify-send -a "secure-install" -i system-software-update \
-      "${#updates[@]} app update(s) available" "${updates[*]}" || true
+    notify_updates "${#updates[@]} app update(s) available" "${updates[*]}" "${links[@]}"
   fi
 }
 

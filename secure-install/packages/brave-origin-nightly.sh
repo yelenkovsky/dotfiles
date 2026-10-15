@@ -10,6 +10,7 @@ BRAVE_ORIGIN_NIGHTLY_GPG_HOME="$STATE_DIR/brave-gnupg-$TIMESTAMP"
 BRAVE_ORIGIN_NIGHTLY_DOWNLOAD_URL=""
 BRAVE_ORIGIN_NIGHTLY_SHA256=""
 register_update_check brave-origin-nightly "$BRAVE_ORIGIN_NIGHTLY_DOWNLOAD"
+# No register_changelog: nightly releases carry no notes; Brave writes them for stable Origin only.
 # "GitHub Checksums - Beta and Nightly Channels" on https://brave.com/signing-keys/.
 # The file holds Brave's three pre-release checksum keys; .sha256.asc files are
 # signed with the v2 key below (until 2026-10 they used the install.sh key

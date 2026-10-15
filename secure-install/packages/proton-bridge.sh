@@ -11,6 +11,7 @@ PROTON_BRIDGE_GPG_HOME="$STATE_DIR/proton-bridge-gnupg-$TIMESTAMP"
 PROTON_BRIDGE_INSTALL_DIR="/opt/proton-bridge"
 PROTON_BRIDGE_DOWNLOAD_URL=""
 register_update_check proton-bridge "$PROTON_BRIDGE_DEB"
+register_changelog proton-bridge 'https://github.com/ProtonMail/proton-bridge/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/ProtonMail/proton-bridge/releases'
 # Vendor PKGBUILD runtime dep for the `bridge` backend (libfido2.so.1).
 PROTON_BRIDGE_RUNTIME_PACKAGES=(
   libfido2

@@ -9,6 +9,7 @@ AUDIORELAY_DOWNLOAD="$STATE_DIR/audiorelay-$TIMESTAMP.tar.gz"
 AUDIORELAY_API_JSON="$STATE_DIR/audiorelay-downloads-$TIMESTAMP.json"
 AUDIORELAY_DOWNLOAD_URL=""
 register_update_check audiorelay "$AUDIORELAY_DOWNLOAD"
+register_changelog audiorelay 'https://community.audiorelay.net/c/releases/9'
 
 resolve_audiorelay_download() {
   download_url_to_file "$AUDIORELAY_API_JSON" "$AUDIORELAY_DOWNLOADS_API"

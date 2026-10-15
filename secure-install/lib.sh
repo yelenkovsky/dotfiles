@@ -5,6 +5,9 @@ declare -A PACKAGE_ORDER=()
 declare -A PACKAGE_DESCRIPTION=()
 declare -A PACKAGE_INSTALLER=()
 declare -A PACKAGE_ARTIFACT=()
+declare -A PACKAGE_CHANGELOG=()
+declare -A PACKAGE_CHANGELOG_MATCH=()
+declare -A PACKAGE_CHANGELOG_FALLBACK=()
 
 # --check mode: run each installer up to the point where it would download the
 # app, record what it would download, and stop. Set by secure-install.sh.
@@ -34,6 +37,44 @@ register_package() {
 # so --check can tell when a newer one is published.
 register_update_check() {
   PACKAGE_ARTIFACT["$1"]="$2"
+}
+
+# Where to read what changed when --check finds a newer release.
+#   register_changelog ID TEMPLATE [PATTERN [FALLBACK]]
+# PATTERN is a bash regex matched against the release's download URL (the one
+# the installer asked for, then the final one after redirects); its first
+# group is the version or tag. TEMPLATE may use {version}, {version_dashes}
+# (dots as dashes) and {version_nodots}. Without PATTERN the TEMPLATE is a
+# fixed page. When PATTERN does not match, FALLBACK (a fixed page) is used.
+register_changelog() {
+  PACKAGE_CHANGELOG["$1"]="$2"
+  PACKAGE_CHANGELOG_MATCH["$1"]="${3-}"
+  PACKAGE_CHANGELOG_FALLBACK["$1"]="${4-}"
+}
+
+# Print the changelog link for the release --check just found, if any.
+changelog_link() {
+  local id="$1"
+  local template="${PACKAGE_CHANGELOG[$id]-}"
+  local pattern="${PACKAGE_CHANGELOG_MATCH[$id]-}"
+  local urls version
+
+  [ -n "$template" ] || return 0
+  if [ -z "$pattern" ]; then
+    printf '%s\n' "$template"
+    return 0
+  fi
+
+  urls="$(tr '\n' ' ' <"$FINGERPRINT_DIR/$id.url" 2>/dev/null)"
+  if [[ "$urls" =~ $pattern ]]; then
+    version="${BASH_REMATCH[1]}"
+    template="${template//\{version\}/$version}"
+    template="${template//\{version_dashes\}/${version//./-}}"
+    template="${template//\{version_nodots\}/${version//./}}"
+    printf '%s\n' "$template"
+  elif [ -n "${PACKAGE_CHANGELOG_FALLBACK[$id]-}" ]; then
+    printf '%s\n' "${PACKAGE_CHANGELOG_FALLBACK[$id]}"
+  fi
 }
 
 package_exists() {
@@ -536,6 +577,7 @@ replace_install_tree() {
 release_fingerprint() {
   local url="$1"
   local user_agent="${2-}"
+  local final_url_file="${3-}"
   local -a agent=()
   local headers=""
   local final=""
@@ -561,6 +603,10 @@ release_fingerprint() {
   ')"
 
   [ -n "$final" ] || return 1
+  # The full final URL (query included) can name the release even when the
+  # path does not (DBeaver: ...?filename=dbeaver-ce-26.2.2-...); keep it for
+  # changelog links, never for the fingerprint.
+  [ -z "$final_url_file" ] || printf '%s\n' "$final" >>"$final_url_file"
   printf '%s|%s\n' "${final%%\?*}" "$size"
 }
 
@@ -580,7 +626,8 @@ intercept_package_download() {
 
   [ ! -e "$file" ] || return 1
   if [ -n "$artifact" ] && [ "$dest" = "$artifact" ]; then
-    release_fingerprint "$url" "$user_agent" >"$file.tmp" && mv "$file.tmp" "$file"
+    printf '%s\n' "$url" >"$file.url"
+    release_fingerprint "$url" "$user_agent" "$file.url" >"$file.tmp" && mv "$file.tmp" "$file"
     rm -f "$file.tmp"
     return 1
   fi
@@ -608,7 +655,8 @@ note_package_download() {
 # the installed record still know about it.
 note_release_already_installed() {
   [ -n "$CURRENT_PACKAGE" ] && [ -n "$FINGERPRINT_DIR" ] || return 0
-  release_fingerprint "$1" "${2-}" >"$FINGERPRINT_DIR/$CURRENT_PACKAGE" \
+  printf '%s\n' "$1" >"$FINGERPRINT_DIR/$CURRENT_PACKAGE.url"
+  release_fingerprint "$1" "${2-}" "$FINGERPRINT_DIR/$CURRENT_PACKAGE.url" >"$FINGERPRINT_DIR/$CURRENT_PACKAGE" \
     || rm -f "$FINGERPRINT_DIR/$CURRENT_PACKAGE"
   return 0
 }

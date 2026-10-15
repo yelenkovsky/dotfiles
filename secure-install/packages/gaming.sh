@@ -24,6 +24,7 @@ PROTON_CACHYOS_DOWNLOAD_URL=""
 PROTON_CACHYOS_SHA512=""
 PROTON_CACHYOS_TOOL_NAME=""
 register_update_check gaming "$PROTON_CACHYOS_DOWNLOAD"
+register_changelog gaming 'https://github.com/CachyOS/proton-cachyos/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/CachyOS/proton-cachyos/releases'
 
 cpu_supports_x86_64_v3() {
   local loader="/lib/ld-linux-x86-64.so.2"

@@ -6,6 +6,7 @@ TODOIST_APPIMAGE_NAME="Todoist.AppImage"
 TODOIST_DOWNLOAD="$STATE_DIR/Todoist-$TIMESTAMP.AppImage"
 TODOIST_ICON_DIR="$STATE_DIR/todoist-icon-$TIMESTAMP"
 register_update_check todoist "$TODOIST_DOWNLOAD"
+register_changelog todoist 'https://www.todoist.com/help/todoist/product-updates'
 
 download_todoist_appimage() {
   download_url_to_file "$TODOIST_DOWNLOAD" "$TODOIST_DOWNLOAD_URL"

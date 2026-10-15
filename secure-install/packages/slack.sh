@@ -20,6 +20,7 @@ SLACK_RUNTIME_PACKAGES=(
   xdg-utils
 )
 register_update_check slack "$SLACK_DEB"
+register_changelog slack 'https://slack.com/release-notes/linux'
 
 download_slack_index() {
   download_url_to_file "$SLACK_INDEX" "$SLACK_DOWNLOADS_URL"

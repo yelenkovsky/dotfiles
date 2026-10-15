@@ -6,6 +6,7 @@ PASS_CLI_DOWNLOAD="$STATE_DIR/pass-cli-$TIMESTAMP"
 PASS_CLI_SHA256_FILE="$STATE_DIR/pass-cli-$TIMESTAMP.sha256"
 PASS_CLI_BIN="/usr/local/bin/pass-cli"
 register_update_check pass-cli "$PASS_CLI_DOWNLOAD"
+register_changelog pass-cli 'https://github.com/protonpass/pass-cli/blob/main/CHANGELOG.md'
 
 download_pass_cli_files() {
   download_url_to_file "$PASS_CLI_SHA256_FILE" "$PASS_CLI_SHA256_URL"

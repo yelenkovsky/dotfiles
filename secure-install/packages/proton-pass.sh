@@ -7,6 +7,7 @@ PROTON_PASS_INSTALL_DIR="/opt/proton-pass"
 PROTON_PASS_DEB_URL=""
 PROTON_PASS_SHA512=""
 register_update_check proton-pass "$PROTON_PASS_DEB"
+register_changelog proton-pass 'https://github.com/ProtonMail/WebClients/blob/main/applications/pass-desktop/CHANGELOG.md#version-{version_nodots}' 'proton-pass_([0-9.]+)_amd64' 'https://github.com/ProtonMail/WebClients/blob/main/applications/pass-desktop/CHANGELOG.md'
 
 download_proton_pass_version_json() {
   download_url_to_file "$PROTON_PASS_VERSION_JSON" "$PROTON_PASS_VERSION_URL"

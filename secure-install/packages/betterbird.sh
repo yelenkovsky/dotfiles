@@ -8,6 +8,7 @@ BETTERBIRD_SHA256_FILE="$STATE_DIR/betterbird-$TIMESTAMP.sha256"
 BETTERBIRD_DOWNLOAD_URL=""
 BETTERBIRD_SHA256=""
 register_update_check betterbird "$BETTERBIRD_DOWNLOAD"
+register_changelog betterbird 'https://www.betterbird.eu/releasenotes/'
 
 resolve_betterbird_download() {
   local filename=""
