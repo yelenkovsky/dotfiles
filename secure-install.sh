@@ -115,9 +115,11 @@ selected_packages() {
   done < <(sorted_package_ids)
 }
 
-# Desktop notification for found updates. With changelog links it offers an
-# "Open changelogs" button (notify-send waits for the click or the timeout)
-# that opens each release-notes page in the default browser.
+# Desktop notification for found updates. With changelog links, clicking the
+# notification opens each release-notes page in the default browser. The
+# action is registered as "default": Omarchy's shell draws no buttons and only
+# ever invokes that identifier when the card is clicked. notify-send waits for
+# the click or the timeout.
 notify_updates() {
   local title="$1"
   local body="$2"
@@ -130,12 +132,18 @@ notify_updates() {
   fi
 
   action="$(notify-send -a "secure-install" -i system-software-update \
-    -A open="Open changelogs" "$title" "$body" 2>/dev/null || true)"
-  if [ "$action" = open ]; then
+    -A default="Open changelogs" "$title" "$body"$'\n'"Click to open the changelogs." 2>/dev/null || true)"
+  if [ "$action" = default ]; then
+    # Start the browser as its own app (Omarchy's launcher uses systemd-run),
+    # not as a child of this job: the check service ends right after, and
+    # systemd would take a browser started inside it down with it.
     for link in "$@"; do
-      xdg-open "$link" >/dev/null 2>&1 &
+      if command -v omarchy-launch-browser >/dev/null 2>&1; then
+        omarchy-launch-browser "$link" >/dev/null 2>&1
+      else
+        setsid -f xdg-open "$link" </dev/null >/dev/null 2>&1
+      fi
     done
-    wait
   fi
 }
 
