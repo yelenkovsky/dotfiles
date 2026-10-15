@@ -318,7 +318,8 @@ remember_app_launches() {
   local relaunch="$2"
   shift 2
   local -A app=()
-  local pid ppid unit cmd arg first cwd
+  local -a units=() commands=() argv=()
+  local pid ppid unit cmd arg cwd exe rest
   local need_command=false
 
   for pid in $(app_process_pids "$@"); do
@@ -332,7 +333,7 @@ remember_app_launches() {
     unit="$(sed -n 's|^0::.*/||p' "/proc/$pid/cgroup" 2>/dev/null)"
     if [[ "$unit" == *.service ]] \
       && [ "$(systemctl --user show -p Transient --value "$unit" 2>/dev/null)" = no ]; then
-      [[ " ${REOPEN_UNITS[*]} " == *" $unit "* ]] || REOPEN_UNITS+=("$unit")
+      [[ " ${units[*]} " == *" $unit "* ]] || units+=("$unit")
       continue
     fi
 
@@ -341,27 +342,57 @@ remember_app_launches() {
       continue
     fi
 
+    argv=()
+    while IFS= read -r -d '' arg; do
+      argv+=("$arg")
+    done <"/proc/$pid/cmdline" 2>/dev/null
+    [ "${#argv[@]}" -gt 0 ] || continue
+
+    # Electron/Chromium rewrite their command line into one space-joined
+    # string ("/path/app --flag"). Take the program from /proc/PID/exe and
+    # split the rest; a lone argument that is a real file (a path with a
+    # space, "/opt/proton-pass/Proton Pass") is left alone.
+    if [ "${#argv[@]}" -eq 1 ] && [[ "${argv[0]}" == *" "* ]] && [ ! -e "${argv[0]}" ]; then
+      exe="$(readlink "/proc/$pid/exe" 2>/dev/null)"
+      exe="${exe% (deleted)}"
+      if [ -n "$exe" ] && [[ "${argv[0]}" == "$exe "* ]]; then
+        rest="${argv[0]#"$exe "}"
+        read -r -a argv <<<"$rest"
+        argv=("$exe" "${argv[@]}")
+      fi
+    fi
+
     # Relative program paths (e.g. ./Grayjay after the launcher's cd) are
     # resolved against the process's working directory.
-    cmd=""
-    first=true
     cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
-    while IFS= read -r -d '' arg; do
-      if [ "$first" = true ] && [[ "$arg" != /* && "$arg" == */* ]] && [ -n "$cwd" ]; then
-        arg="$cwd/${arg#./}"
-      fi
-      first=false
+    if [[ "${argv[0]}" != /* && "${argv[0]}" == */* ]] && [ -n "$cwd" ]; then
+      argv[0]="$cwd/${argv[0]#./}"
+    fi
+
+    cmd=""
+    for arg in "${argv[@]}"; do
       printf -v cmd '%s%q ' "$cmd" "$arg"
-    done <"/proc/$pid/cmdline" 2>/dev/null
-    [ -n "$cmd" ] && REOPEN_COMMANDS+=("$cmd")
+    done
+    commands+=("$cmd")
   done
 
   if [ "$need_command" = true ]; then
     printf -v cmd '%q' "$relaunch"
-    REOPEN_COMMANDS+=("$cmd")
+    commands+=("$cmd")
   fi
 
-  if [ "${#REOPEN_UNITS[@]}" -gt 0 ] || [ "${#REOPEN_COMMANDS[@]}" -gt 0 ]; then
+  # One reopen per app: restarting its persistent service brings it back, so
+  # extra launch points (a second instance started from a shortcut) are not
+  # run again as well.
+  if [ "${#units[@]}" -gt 0 ]; then
+    for unit in "${units[@]}"; do
+      [[ " ${REOPEN_UNITS[*]} " == *" $unit "* ]] || REOPEN_UNITS+=("$unit")
+    done
+  else
+    REOPEN_COMMANDS+=("${commands[@]}")
+  fi
+
+  if [ "${#units[@]}" -gt 0 ] || [ "${#commands[@]}" -gt 0 ]; then
     REOPEN_LABELS+=("$label")
   fi
 }
