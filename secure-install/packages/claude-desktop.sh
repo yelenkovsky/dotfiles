@@ -128,6 +128,24 @@ download_claude_desktop_deb() {
   download_url_to_file "$CLAUDE_DESKTOP_DEB" "$CLAUDE_DESKTOP_DEB_URL"
 }
 
+# Claude's "open at login" writes ~/.config/autostart/claude-desktop.desktop
+# with its own binary, not our launcher. Started that way it lacks
+# --password-store=gnome-libsecret, Electron does not recognise Hyprland, falls
+# back to basic_text and cannot decrypt the saved login: a sign-in after every
+# reboot. Override the unit systemd generates from that file, so it survives
+# Claude rewriting the .desktop file.
+write_claude_desktop_autostart_override() {
+  local dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/"'app-claude\x2ddesktop@autostart.service.d'
+
+  mkdir -p "$dir"
+  cat >"$dir/launcher.conf" <<EOF
+[Service]
+ExecStart=
+ExecStart=$CLAUDE_DESKTOP_LAUNCHER --startup
+EOF
+  systemctl --user daemon-reload 2>/dev/null || true
+}
+
 install_claude_desktop_files() {
   local work="$STATE_DIR/claude-desktop-extract-$TIMESTAMP"
   local data=""
@@ -170,6 +188,7 @@ install_claude_desktop_files() {
 exec $CLAUDE_DESKTOP_INSTALL_DIR/claude-desktop --password-store=gnome-libsecret --no-sandbox --ozone-platform-hint=auto "\$@"
 EOF
   chmod 755 "$CLAUDE_DESKTOP_LAUNCHER"
+  write_claude_desktop_autostart_override
 
   if [ -d "$work/usr/share/icons/hicolor" ]; then
     while IFS= read -r icon; do
