@@ -517,6 +517,92 @@ restore_executable_bits() {
   done
 }
 
+# ---- pacman ownership guard -------------------------------------------------
+# secure-install replaces apps that were once installed from pacman/AUR. If
+# such a package is still installed it keeps owning the paths we write, and
+# its next upgrade silently puts its own build back (Brave's launcher and the
+# Portmaster firewall both went that way). So refuse to overwrite or remove
+# anything pacman owns, and say how to hand the files over.
+
+pacman_owners() {
+  [ -e "$1" ] || [ -L "$1" ] || return 0
+  command -v pacman >/dev/null 2>&1 || return 0
+  pacman -Qqo -- "$1" 2>/dev/null | sort -u | tr '\n' ' ' | sed 's/ $//'
+}
+
+report_pacman_conflict() {
+  log "Refusing to change $1: it belongs to the pacman package(s) $2."
+  log "  A pacman/yay upgrade of $2 would put its own version back over ours."
+  log "  Hand the files over without deleting them, then run this install again:"
+  log "    sudo pacman -Rdd --dbonly $2"
+}
+
+# Files only: shared directories (/usr/share/applications, icon theme dirs)
+# are owned by many packages and are fine to write into.
+refuse_if_pacman_owned() {
+  local path owners
+
+  for path in "$@"; do
+    [ -d "$path" ] && [ ! -L "$path" ] && continue
+    owners="$(pacman_owners "$path")"
+    if [ -n "$owners" ]; then
+      report_pacman_conflict "$path" "$owners"
+      return 1
+    fi
+  done
+}
+
+# An app's own install root (/opt/x, /usr/lib/portmaster) must not belong to a
+# package either; checked before replace_install_tree touches anything.
+refuse_if_pacman_owned_dir() {
+  local owners
+  local -a list
+
+  owners="$(pacman_owners "$1")"
+  [ -n "$owners" ] || return 0
+
+  read -r -a list <<<"$owners"
+  if [ "${#list[@]}" -gt 1 ]; then
+    # An app's own folder belongs to one package at most; many owners means a
+    # shared system directory, which must never be replaced wholesale.
+    log "Refusing to replace $1: it is a shared system directory (owned by ${#list[@]} pacman packages), not an app's own folder."
+    return 1
+  fi
+  report_pacman_conflict "$1" "$owners"
+  return 1
+}
+
+# Every installer writes system files through sudo; check the targets of the
+# commands that create, replace or delete files before running them.
+# SECURE_INSTALL_PACMAN_GUARD=false turns the check off.
+sudo() {
+  local -a targets=()
+  local arg
+
+  if [ "${SECURE_INSTALL_PACMAN_GUARD:-true}" = true ] && [ "$CHECK_MODE" != true ]; then
+    case "${1-}" in
+      tee)
+        for arg in "${@:2}"; do
+          [[ "$arg" == -* ]] || { targets+=("$arg"); break; }
+        done
+        ;;
+      install | ln)
+        targets+=("${@: -1}")
+        ;;
+      rm)
+        for arg in "${@:2}"; do
+          [[ "$arg" == -* ]] || targets+=("$arg")
+        done
+        ;;
+    esac
+    if [ "${#targets[@]}" -gt 0 ]; then
+      refuse_if_pacman_owned "${targets[@]}" || return 1
+    fi
+  fi
+
+  command sudo "$@"
+}
+
 # Install an extracted app tree into dest without ever leaving it half-copied:
 # copy into dest.new, swap it in with two renames on the same filesystem, and
 # only then delete the old tree. Any failure before the swap leaves the old
@@ -528,6 +614,8 @@ replace_install_tree() {
   local owner="${3-}"
   local stage="$dest.new"
   local old="$dest.old"
+
+  refuse_if_pacman_owned_dir "$dest" || return 1
 
   sudo rm -rf "$stage" "$old" || return 1
 
