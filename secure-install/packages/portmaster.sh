@@ -171,7 +171,18 @@ install_portmaster_files() {
   sudo install -D -m 755 "$work/usr/bin/portmaster" "$PORTMASTER_LIB_DIR/portmaster"
   sudo install -D -m 644 "$work/usr/lib/portmaster/portmaster.zip" "$PORTMASTER_LIB_DIR/portmaster.zip"
   sudo install -D -m 644 "$work/usr/lib/portmaster/assets.zip" "$PORTMASTER_LIB_DIR/assets.zip"
-  sudo ln -sfn "$PORTMASTER_LIB_DIR/portmaster" /usr/local/bin/portmaster
+  # A launcher, not a symlink: the Tauri/WebKitGTK UI dies with "Error 71
+  # (Protocol error) dispatching to Wayland display" as soon as it opens a
+  # window here (hybrid NVIDIA/AMD) unless WebKit's dmabuf renderer is off.
+  # The desktop entry, the XDG autostart entry and keybindings all run this.
+  # Remove the old symlink first so tee cannot write through it into the binary.
+  sudo rm -f /usr/local/bin/portmaster || return 1
+  sudo tee /usr/local/bin/portmaster >/dev/null <<EOF || return 1
+#!/bin/sh
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+exec "$PORTMASTER_LIB_DIR/portmaster" "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/portmaster || return 1
 
   sudo mkdir -p /var/lib/portmaster/intel
   for intel in "$work"/var/lib/portmaster/intel/*; do
