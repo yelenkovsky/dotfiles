@@ -79,14 +79,18 @@ Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
 
-  # Proton Pass signs in as it starts; at login it came up before the network
-  # (and Portmaster/Mullvad) let it through. Wait until Proton's servers answer,
-  # at most 60 s, then start it either way. ($$ is a literal $ for systemd.)
+  # At login Proton Pass came up before two things it needs:
+  # - the tray host: Electron creates its tray icon once, at start, so an icon
+  #   made before the bar's StatusNotifierWatcher is ready is lost (at most 30 s);
+  # - the network (and Portmaster/Mullvad) for signing in: wait until Proton's
+  #   servers answer (at most 60 s).
+  # Either way Proton Pass starts afterwards. ($$ is a literal $ for systemd.)
   local dropin="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/"'app-proton\x2dpass@autostart.service.d'
   mkdir -p "$dropin"
   cat >"$dropin/wait-for-internet.conf" <<'EOF'
 [Service]
-TimeoutStartSec=90
+TimeoutStartSec=120
+ExecStartPre=/bin/sh -c 'for i in $$(seq 1 30); do busctl --user get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher org.kde.StatusNotifierWatcher IsStatusNotifierHostRegistered 2>/dev/null | grep -q "b true" && exit 0; sleep 1; done; exit 0'
 ExecStartPre=/bin/sh -c 'end=$$(( $$(date +%%s) + 60 )); while [ "$$(date +%%s)" -lt "$$end" ]; do curl -fs -o /dev/null --max-time 3 https://pass.proton.me && exit 0; sleep 2; done; exit 0'
 EOF
   systemctl --user daemon-reload 2>/dev/null || true
