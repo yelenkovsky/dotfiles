@@ -1,17 +1,23 @@
 # Dotfiles
 
-Public Fish, Ghostty and Vim setup for a Linux desktop. Package installs and home-directory symlinks are separate scripts.
+Public Fish, Ghostty and Vim setup for a Linux desktop, plus verified installs of desktop apps and a daily check for their updates. Package installs and home-directory symlinks are separate scripts.
 
 ```mermaid
 flowchart LR
-  clone["Clone this repo<br/>configs and package scripts"]
-  secure["secure-install.sh<br/>one package, a group, or all"]
-  link["install.sh<br/>symlink configs into $HOME"]
-  system["System<br/>pacman, AUR, /opt, /usr/local/bin"]
-  home["Home<br/>fish, ghostty, vim"]
+  clone["Clone this repo"]
+  link["install.sh<br/>symlink configs"]
+  home["$HOME<br/>fish, ghostty, vim, git + signing,<br/>starship, eza, gh, Claude skill"]
+  timer["Daily 18:00 UTC timer<br/>(set up by install.sh)"]
+  check["secure-install.sh --check<br/>newer release?"]
+  notify["Notification<br/>click: changelogs"]
+  secure["secure-install.sh<br/>--only app, group, or all"]
+  verify["Download + verify<br/>checksum / GPG"]
+  system["System and user installs<br/>pacman/AUR groups, /opt, /usr/lib,<br/>/usr/local/bin, ~/.local, autostart"]
 
-  clone --> secure --> system
   clone --> link --> home
+  link --> timer --> check --> notify --> secure
+  clone --> secure --> verify --> system
+  system -. records installed release .-> check
 ```
 
 ## Install
@@ -29,14 +35,19 @@ chmod +x install.sh secure-install.sh setup/*.sh
 
 `install.sh` resolves paths from its own directory, so the clone does not have to live at `~/dotfiles`. It replaces an existing symlink, and moves a real file aside into `~/dotfiles-backup-<timestamp>/`.
 
-`secure-install.sh` loads every `secure-install/packages/*.sh`. Each script registers itself. Package groups (`core`, `desktop`, `util`, `fonts`, `gaming`, `aur`) install through pacman or yay. Gaming also installs `nvidia-prime`, the AUR package `mangojuice`, and the Proton-CachyOS Steam Linux Runtime x86-64-v3 build. Vendor apps download an artifact, check it, then install under `/opt` or `/usr/local/bin`. `./secure-install.sh --help` shows `--only`, `--skip`, and `--dry-run`. Logs go to `~/.local/state/dotfiles-installer/`.
+`secure-install.sh` loads every `secure-install/packages/*.sh`. Each script registers itself. Package groups (`core`, `desktop`, `util`, `fonts`, `gaming`, `aur`) install through pacman or yay. Gaming also installs `nvidia-prime`, the AUR package `mangojuice`, and the Proton-CachyOS Steam Linux Runtime x86-64-v3 build. Vendor apps download an artifact, verify it (published checksum or GPG signature), then install under `/opt`, `/usr/lib`, `/usr/local/bin` or `~/.local`, with autostart entries where the app needs one. A running app is closed before its files are replaced and reopened afterwards; a new tree is staged and swapped in, so a failed copy keeps the working install. Files that a pacman package still owns are never overwritten: the installer stops and prints the `pacman -Rdd --dbonly` hand-over. `./secure-install.sh --help` shows `--only`, `--skip`, `--dry-run` and `--check`. Logs go to `~/.local/state/dotfiles-installer/`.
+
+## App updates
+
+`./secure-install.sh --check` runs each vendor installer up to the point where it would download the app, compares that release with the one recorded at the last successful install, and lists what is newer, with a link to its release notes. It needs no sudo and installs nothing. `install.sh` sets up a systemd user timer (`setup/update-check-timer.sh`) that runs the check daily at 18:00 UTC and sends a notification; clicking it opens the changelogs. Update with the command the check prints, for example `./secure-install.sh --only slack zoom`. Apps that update themselves (RemNote) are not checked.
 
 ## What is linked
 
 | Path | Role |
 | --- | --- |
 | `.vimrc` | Vim |
-| `.gitconfig` | Git identity and `gh` credential helper |
+| `.gitconfig` | Git identity, `gh` credential helper, and SSH commit signing through the Proton Pass SSH agent |
+| `.config/git/allowed_signers` | Public signing key, so `git log --show-signature` verifies commits locally |
 | `.config/fish`, `.config/omf` | Fish + Oh My Fish |
 | `.config/starship.toml` | Prompt |
 | `.config/ghostty` | Terminal |
@@ -50,6 +61,7 @@ Yazi config, Omarchy theme hooks, and `plasma-themes/` stay in the clone. Link t
 
 Run these by hand when you need them.
 
+- `setup/update-check-timer.sh` — the daily update-check timer (`install.sh` runs it; `--remove` turns it off)
 - `setup/setup-wireshark.sh` — capture group permissions. Install Wireshark separately
 - `setup/usb.sh` — format a removable drive as one FAT32 partition and mount it at `/mnt/usb`
 - `setup/usb-remount.sh` — remount that drive with user write permissions
