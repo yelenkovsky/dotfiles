@@ -78,6 +78,17 @@ Icon=proton-pass
 Terminal=false
 X-GNOME-Autostart-enabled=true
 EOF
+
+  # Proton Pass signs in as it starts; at login it came up before the network
+  # (and Portmaster/Mullvad) let it through. Wait until Proton's servers answer,
+  # at most 60 s, then start it either way. ($$ is a literal $ for systemd.)
+  local dropin="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/"'app-proton\x2dpass@autostart.service.d'
+  mkdir -p "$dropin"
+  cat >"$dropin/wait-for-internet.conf" <<'EOF'
+[Service]
+TimeoutStartSec=90
+ExecStartPre=/bin/sh -c 'end=$$(( $$(date +%%s) + 60 )); while [ "$$(date +%%s)" -lt "$$end" ]; do curl -fs -o /dev/null --max-time 3 https://pass.proton.me && exit 0; sleep 2; done; exit 0'
+EOF
   systemctl --user daemon-reload 2>/dev/null || true
 }
 
