@@ -23,8 +23,8 @@ PROTON_CACHYOS_SHA512_FILE="$STATE_DIR/proton-cachyos-slr-v3-$TIMESTAMP.sha512su
 PROTON_CACHYOS_DOWNLOAD_URL=""
 PROTON_CACHYOS_SHA512=""
 PROTON_CACHYOS_TOOL_NAME=""
-register_update_check gaming "$PROTON_CACHYOS_DOWNLOAD"
-register_changelog gaming 'https://github.com/CachyOS/proton-cachyos/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/CachyOS/proton-cachyos/releases'
+# No register_update_check: Proton-CachyOS is updated outside this installer,
+# so --check does not track it.
 
 cpu_supports_x86_64_v3() {
   local loader="/lib/ld-linux-x86-64.so.2"
