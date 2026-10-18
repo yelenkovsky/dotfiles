@@ -247,6 +247,7 @@ EOF
 
   remove_printcraft_leftovers || return 1
   move_pdf_default_to_pdfcraft
+  set_default_app "$PDFCRAFT_APP_ID.desktop" "PdfCraft" application/pdf
 
   if command -v update-desktop-database >/dev/null 2>&1; then
     sudo update-desktop-database /usr/share/applications || true

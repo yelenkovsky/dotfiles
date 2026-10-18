@@ -468,6 +468,24 @@ reopen_closed_apps() {
   REOPEN_COMMANDS=()
 }
 
+# Make an installed app the default opener for MIME types in the user's
+# ~/.config/mimeapps.list. Never fails the install.
+#
+# Usage: set_default_app DESKTOP_ID LABEL MIME_TYPE...
+set_default_app() {
+  local desktop_id="$1"
+  local label="$2"
+  shift 2
+
+  if ! command -v xdg-mime >/dev/null 2>&1; then
+    log "xdg-mime is not installed; $label was not made a default app"
+    return 0
+  fi
+
+  xdg-mime default "$desktop_id" "$@" || return 0
+  log "$label is the default app for $# file types"
+}
+
 # Installers call this right before their install step, after the download has
 # been verified, so a failed download never closes anything. Whatever it
 # closes is reopened after the package finishes (see reopen_closed_apps).
