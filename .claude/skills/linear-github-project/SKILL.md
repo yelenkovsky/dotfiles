@@ -26,6 +26,7 @@ duplicates. Never turn the sync on, and never suggest it as a fix.
 | GitHub repo | Linear project | Default branch |
 |---|---|---|
 | `yelenkovsky/dotfiles` | Dotfiles & secure-install (`P-DE-28`) | `main` |
+| `yelenkovsky/dotfiles-private` | Dotfiles (private) (`P-DE-29`) | `main` |
 
 Add a row when a repo is onboarded. A repo with no row is not onboarded: run
 **Onboard a repo** first, or ask which Linear project it belongs to.
