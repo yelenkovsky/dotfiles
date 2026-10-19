@@ -47,6 +47,7 @@ link_if_present ".config/git/allowed_signers" "$HOME/.config/git/allowed_signers
 echo ""
 echo "Claude Code"
 link_if_present ".claude/skills/add-secure-install-app" "$HOME/.claude/skills/add-secure-install-app"
+link_if_present ".claude/skills/linear-github-project" "$HOME/.claude/skills/linear-github-project"
 
 echo ""
 echo "Shell, terminal, prompt"
