@@ -258,7 +258,7 @@ install_proton_cachyos_slr_v3() {
     fi
 
     log "Verified Proton-CachyOS SLR v3 SHA-512 ($file_size bytes)"
-    close_running_app "Proton-CachyOS games" "$PROTON_CACHYOS_COMPAT_DIR/$PROTON_CACHYOS_TOOL_NAME"
+    close_running_app "Proton-CachyOS games" "$PROTON_CACHYOS_COMPAT_DIR/$PROTON_CACHYOS_TOOL_NAME" || return 0
 
     run_step "install Proton-CachyOS SLR v3" install_proton_cachyos_slr_v3_files
 

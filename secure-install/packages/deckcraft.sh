@@ -248,7 +248,7 @@ install_deckcraft() {
 
   log "Verified DeckCraft AppImage; installing to $DECKCRAFT_INSTALL_DIR"
 
-  close_running_app "DeckCraft" "$DECKCRAFT_INSTALL_DIR"
+  close_running_app "DeckCraft" "$DECKCRAFT_INSTALL_DIR" || return 0
 
   run_step "install DeckCraft AppImage" install_deckcraft_files
 }

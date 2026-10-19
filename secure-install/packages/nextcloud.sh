@@ -289,7 +289,7 @@ install_nextcloud() {
   chmod 700 "$NEXTCLOUD_DOWNLOAD"
   log "Verified Nextcloud AppImage ($file_size bytes); installing to $NEXTCLOUD_INSTALL_DIR"
 
-  close_running_app "Nextcloud" "$NEXTCLOUD_INSTALL_DIR"
+  close_running_app "Nextcloud" "$NEXTCLOUD_INSTALL_DIR" || return 0
 
   run_step "install Nextcloud desktop AppImage" install_nextcloud_files
 }

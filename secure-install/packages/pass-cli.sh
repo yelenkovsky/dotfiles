@@ -68,7 +68,7 @@ install_pass_cli() {
   chmod 700 "$PASS_CLI_DOWNLOAD"
   log "Verified Proton Pass CLI SHA-256; installing to $PASS_CLI_BIN"
 
-  close_running_app "Proton Pass CLI" "$PASS_CLI_BIN"
+  close_running_app "Proton Pass CLI" "$PASS_CLI_BIN" || return 0
 
   run_step "install Proton Pass CLI" install_pass_cli_files
 }

@@ -316,7 +316,7 @@ install_claude_desktop() {
 
   log "Verified Claude Desktop .deb SHA-256; extracting to $CLAUDE_DESKTOP_INSTALL_DIR"
 
-  close_running_app --relaunch "$CLAUDE_DESKTOP_LAUNCHER" "Claude Desktop" "$CLAUDE_DESKTOP_INSTALL_DIR"
+  close_running_app --relaunch "$CLAUDE_DESKTOP_LAUNCHER" "Claude Desktop" "$CLAUDE_DESKTOP_INSTALL_DIR" || return 0
 
   run_step "install Claude Desktop" install_claude_desktop_files
 }

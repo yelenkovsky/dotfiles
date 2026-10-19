@@ -329,7 +329,7 @@ install_zoom() {
 
   log "Verified Zoom .deb ($file_size bytes); extracting to $ZOOM_INSTALL_DIR"
 
-  close_running_app "Zoom" "$ZOOM_INSTALL_DIR"
+  close_running_app "Zoom" "$ZOOM_INSTALL_DIR" || return 0
 
   run_step "install Zoom" install_zoom_files
 }

@@ -154,7 +154,7 @@ install_grayjay() {
 
   log "Verified Grayjay zip ($file_size bytes); extracting to $GRAYJAY_INSTALL_DIR"
 
-  close_running_app --relaunch /usr/local/bin/grayjay "Grayjay" "$GRAYJAY_INSTALL_DIR"
+  close_running_app --relaunch /usr/local/bin/grayjay "Grayjay" "$GRAYJAY_INSTALL_DIR" || return 0
 
   run_step "install Grayjay" install_grayjay_files
 }

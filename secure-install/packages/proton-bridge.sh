@@ -252,7 +252,7 @@ install_proton_bridge() {
 
   log "Verified Proton Mail Bridge .deb ($file_size bytes); extracting to $PROTON_BRIDGE_INSTALL_DIR"
 
-  close_running_app "Proton Mail Bridge" "$PROTON_BRIDGE_INSTALL_DIR"
+  close_running_app "Proton Mail Bridge" "$PROTON_BRIDGE_INSTALL_DIR" || return 0
 
   run_step "install Proton Mail Bridge" install_proton_bridge_files
 }

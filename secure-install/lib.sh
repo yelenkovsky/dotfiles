@@ -489,6 +489,8 @@ set_default_app() {
 # Installers call this right before their install step, after the download has
 # been verified, so a failed download never closes anything. Whatever it
 # closes is reopened after the package finishes (see reopen_closed_apps).
+# Fails when the app could not be closed; callers then skip the install, so
+# files are never replaced under a running app.
 #
 # Usage: close_running_app [--relaunch LAUNCHER] LABEL PATH...
 close_running_app() {
@@ -510,7 +512,9 @@ close_running_app() {
     remember_app_launches "$label" "$relaunch" "$@"
   fi
 
+  local failures_before=${#FAILURES[@]}
   run_step "close running $label" stop_app_processes "$label" "$@"
+  [ "${#FAILURES[@]}" -eq "$failures_before" ]
 }
 
 restore_executable_bits() {

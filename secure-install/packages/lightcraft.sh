@@ -246,7 +246,7 @@ install_lightcraft() {
 
   log "Verified LightCraft AppImage; installing to $LIGHTCRAFT_INSTALL_DIR"
 
-  close_running_app "LightCraft" "$LIGHTCRAFT_INSTALL_DIR"
+  close_running_app "LightCraft" "$LIGHTCRAFT_INSTALL_DIR" || return 0
 
   run_step "install LightCraft AppImage" install_lightcraft_files
 }

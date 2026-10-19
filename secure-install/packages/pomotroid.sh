@@ -177,7 +177,7 @@ install_pomotroid() {
   chmod 700 "$POMOTROID_DOWNLOAD"
   log "Verified Pomotroid AppImage ($file_size bytes); installing to $POMOTROID_INSTALL_DIR"
 
-  close_running_app "Pomotroid" "$POMOTROID_INSTALL_DIR"
+  close_running_app "Pomotroid" "$POMOTROID_INSTALL_DIR" || return 0
 
   run_step "install Pomotroid AppImage" install_pomotroid_files
 }

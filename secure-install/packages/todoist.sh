@@ -106,7 +106,7 @@ install_todoist() {
   chmod 700 "$TODOIST_DOWNLOAD"
   log "Verified Todoist AppImage ($file_size bytes); installing to $TODOIST_INSTALL_DIR"
 
-  close_running_app "Todoist" "$TODOIST_INSTALL_DIR"
+  close_running_app "Todoist" "$TODOIST_INSTALL_DIR" || return 0
 
   run_step "install Todoist AppImage" install_todoist_files
 }

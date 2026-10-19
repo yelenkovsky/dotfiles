@@ -248,7 +248,7 @@ install_gridcraft() {
 
   log "Verified GridCraft AppImage; installing to $GRIDCRAFT_INSTALL_DIR"
 
-  close_running_app "GridCraft" "$GRIDCRAFT_INSTALL_DIR"
+  close_running_app "GridCraft" "$GRIDCRAFT_INSTALL_DIR" || return 0
 
   run_step "install GridCraft AppImage" install_gridcraft_files
 }

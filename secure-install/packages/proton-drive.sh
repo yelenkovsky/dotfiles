@@ -116,7 +116,7 @@ install_proton_drive() {
   chmod 700 "$PROTON_DRIVE_DOWNLOAD"
   log "Verified Proton Drive CLI SHA-512; installing to $PROTON_DRIVE_BIN"
 
-  close_running_app "Proton Drive CLI" "$PROTON_DRIVE_BIN"
+  close_running_app "Proton Drive CLI" "$PROTON_DRIVE_BIN" || return 0
 
   run_step "install Proton Drive CLI" install_proton_drive_files
 }

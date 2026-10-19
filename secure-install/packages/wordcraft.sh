@@ -250,7 +250,7 @@ install_wordcraft() {
 
   log "Verified WordCraft AppImage; installing to $WORDCRAFT_INSTALL_DIR"
 
-  close_running_app "WordCraft" "$WORDCRAFT_INSTALL_DIR"
+  close_running_app "WordCraft" "$WORDCRAFT_INSTALL_DIR" || return 0
 
   run_step "install WordCraft AppImage" install_wordcraft_files
 }

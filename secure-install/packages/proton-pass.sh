@@ -221,7 +221,7 @@ install_proton_pass() {
 
   log "Verified Proton Pass .deb SHA-512; extracting to $PROTON_PASS_INSTALL_DIR"
 
-  close_running_app "Proton Pass" "$PROTON_PASS_INSTALL_DIR"
+  close_running_app "Proton Pass" "$PROTON_PASS_INSTALL_DIR" || return 0
 
   run_step "install Proton Pass desktop" install_proton_pass_files
 }

@@ -114,7 +114,7 @@ install_remnote() {
   chmod 700 "$REMNOTE_DOWNLOAD"
   log "Verified RemNote AppImage ($file_size bytes); installing to $REMNOTE_INSTALL_DIR"
 
-  close_running_app "RemNote" "$REMNOTE_INSTALL_DIR"
+  close_running_app "RemNote" "$REMNOTE_INSTALL_DIR" || return 0
 
   run_step "install RemNote AppImage" install_remnote_files
 }

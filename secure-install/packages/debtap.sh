@@ -126,7 +126,7 @@ install_debtap() {
 
   log "Verified debtap tarball ($file_size bytes); installing to $DEBTAP_BIN"
 
-  close_running_app "debtap" "$DEBTAP_BIN"
+  close_running_app "debtap" "$DEBTAP_BIN" || return 0
 
   run_step "install debtap" install_debtap_files
 }

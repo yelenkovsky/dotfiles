@@ -120,7 +120,7 @@ install_zotero() {
 
   log "Verified Zotero tarball ($file_size bytes); extracting to $ZOTERO_INSTALL_DIR"
 
-  close_running_app "Zotero" "$ZOTERO_INSTALL_DIR"
+  close_running_app "Zotero" "$ZOTERO_INSTALL_DIR" || return 0
 
   run_step "install Zotero" install_zotero_files
 }

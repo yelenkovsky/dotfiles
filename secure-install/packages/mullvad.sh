@@ -366,7 +366,7 @@ install_mullvad() {
 
   log "Verified Mullvad VPN .deb ($file_size bytes); extracting to $MULLVAD_INSTALL_DIR"
 
-  close_running_app "Mullvad VPN app" "$MULLVAD_INSTALL_DIR"
+  close_running_app "Mullvad VPN app" "$MULLVAD_INSTALL_DIR" || return 0
 
   run_step "install Mullvad VPN" install_mullvad_files
 }

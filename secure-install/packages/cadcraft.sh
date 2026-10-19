@@ -242,7 +242,7 @@ install_cadcraft() {
 
   log "Verified CADCraft AppImage; installing to $CADCRAFT_INSTALL_DIR"
 
-  close_running_app "CADCraft" "$CADCRAFT_INSTALL_DIR"
+  close_running_app "CADCraft" "$CADCRAFT_INSTALL_DIR" || return 0
 
   run_step "install CADCraft AppImage" install_cadcraft_files
 }

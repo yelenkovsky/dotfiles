@@ -295,7 +295,7 @@ install_pdfcraft() {
 
   log "Verified PdfCraft AppImage and its OCR models; installing to $PDFCRAFT_INSTALL_DIR"
 
-  close_running_app "PdfCraft" "$PDFCRAFT_INSTALL_DIR" "$PRINTCRAFT_LEGACY_INSTALL_DIR"
+  close_running_app "PdfCraft" "$PDFCRAFT_INSTALL_DIR" "$PRINTCRAFT_LEGACY_INSTALL_DIR" || return 0
 
   run_step "install PdfCraft AppImage" install_pdfcraft_files
 }

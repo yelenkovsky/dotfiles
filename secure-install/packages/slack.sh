@@ -204,7 +204,7 @@ install_slack() {
 
   log "Verified Slack .deb SHA-256; extracting to $SLACK_INSTALL_DIR"
 
-  close_running_app "Slack" "$SLACK_INSTALL_DIR"
+  close_running_app "Slack" "$SLACK_INSTALL_DIR" || return 0
 
   run_step "install Slack" install_slack_files
 }

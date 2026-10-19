@@ -250,7 +250,7 @@ install_brave_origin_nightly() {
 
   log "Verified Brave Origin Nightly ($file_size bytes); installing to $BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"
 
-  close_running_app --relaunch /usr/local/bin/brave-origin-nightly "Brave Origin Nightly" "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR"
+  close_running_app --relaunch /usr/local/bin/brave-origin-nightly "Brave Origin Nightly" "$BRAVE_ORIGIN_NIGHTLY_INSTALL_DIR" || return 0
 
   run_step "install Brave Origin Nightly" install_brave_origin_nightly_files
 }

@@ -152,7 +152,7 @@ install_appimagelauncher() {
   chmod 700 "$APPIMAGELAUNCHER_DOWNLOAD"
   log "Verified AppImageLauncher AppImage ($file_size bytes); installing to $APPIMAGELAUNCHER_INSTALL_DIR"
 
-  close_running_app "AppImageLauncher" "$APPIMAGELAUNCHER_INSTALL_DIR"
+  close_running_app "AppImageLauncher" "$APPIMAGELAUNCHER_INSTALL_DIR" || return 0
 
   run_step "install AppImageLauncher AppImage" install_appimagelauncher_files
 }

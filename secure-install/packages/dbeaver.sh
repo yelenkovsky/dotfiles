@@ -132,7 +132,7 @@ install_dbeaver() {
 
   log "Verified DBeaver SHA-256; extracting to $DBEAVER_INSTALL_DIR"
 
-  close_running_app "DBeaver" "$DBEAVER_INSTALL_DIR"
+  close_running_app "DBeaver" "$DBEAVER_INSTALL_DIR" || return 0
 
   run_step "install DBeaver" install_dbeaver_files
 }

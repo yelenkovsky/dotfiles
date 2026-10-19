@@ -167,7 +167,7 @@ install_betterbird() {
 
   log "Verified Betterbird SHA-256; extracting to $BETTERBIRD_INSTALL_DIR"
 
-  close_running_app "Betterbird" "$BETTERBIRD_INSTALL_DIR"
+  close_running_app "Betterbird" "$BETTERBIRD_INSTALL_DIR" || return 0
 
   run_step "install Betterbird" install_betterbird_files
 }

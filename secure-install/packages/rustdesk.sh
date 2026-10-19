@@ -256,7 +256,7 @@ install_rustdesk() {
 
   log "Verified RustDesk package SHA-256 ($file_size bytes); extracting to $RUSTDESK_INSTALL_DIR"
 
-  close_running_app "RustDesk" "$RUSTDESK_INSTALL_DIR"
+  close_running_app "RustDesk" "$RUSTDESK_INSTALL_DIR" || return 0
 
   # install_rustdesk_files stops the service and runs in run_step's subshell,
   # so note its state here. If the install fails part way, start it again:

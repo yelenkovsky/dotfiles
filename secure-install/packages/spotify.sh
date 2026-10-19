@@ -279,7 +279,7 @@ install_spotify() {
 
   log "Verified Spotify .deb ($file_size bytes); extracting to $SPOTIFY_INSTALL_DIR"
 
-  close_running_app "Spotify" "$SPOTIFY_INSTALL_DIR"
+  close_running_app "Spotify" "$SPOTIFY_INSTALL_DIR" || return 0
 
   run_step "install Spotify" install_spotify_files
 }

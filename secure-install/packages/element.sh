@@ -274,7 +274,7 @@ install_element() {
 
   log "Verified Element Desktop .deb SHA-256; extracting to $ELEMENT_INSTALL_DIR"
 
-  close_running_app "Element Desktop" "$ELEMENT_INSTALL_DIR"
+  close_running_app "Element Desktop" "$ELEMENT_INSTALL_DIR" || return 0
 
   run_step "install Element Desktop" install_element_files
 }

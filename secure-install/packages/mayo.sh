@@ -249,7 +249,7 @@ install_mayo() {
   chmod 700 "$MAYO_DOWNLOAD" "$MAYO_CONV_DOWNLOAD"
   log "Verified Mayo AppImages; installing to $MAYO_INSTALL_DIR"
 
-  close_running_app "Mayo" "$MAYO_INSTALL_DIR"
+  close_running_app "Mayo" "$MAYO_INSTALL_DIR" || return 0
 
   run_step "install Mayo AppImages" install_mayo_files
 }

@@ -179,7 +179,7 @@ install_audiorelay() {
 
   log "Verified AudioRelay tarball ($file_size bytes); extracting to $AUDIORELAY_INSTALL_DIR"
 
-  close_running_app "AudioRelay" "$AUDIORELAY_INSTALL_DIR"
+  close_running_app "AudioRelay" "$AUDIORELAY_INSTALL_DIR" || return 0
 
   run_step "install AudioRelay" install_audiorelay_files
   run_step "allow AudioRelay through UFW" audiorelay_ufw

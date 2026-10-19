@@ -288,7 +288,7 @@ install_portmaster() {
 
   install_package_group pacman "Portmaster runtime packages" PORTMASTER_RUNTIME_PACKAGES
 
-  close_running_app "Portmaster app" "$PORTMASTER_LIB_DIR"
+  close_running_app "Portmaster app" "$PORTMASTER_LIB_DIR" || return 0
 
   run_step "install Portmaster" install_portmaster_files
 }
