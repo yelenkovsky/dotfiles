@@ -8,6 +8,11 @@ CADCRAFT_RELEASES_API="https://api.github.com/repos/$CADCRAFT_REPO/releases/late
 CADCRAFT_APP_ID="ai.storyteller.cadcraft"
 CADCRAFT_INSTALL_DIR="/opt/cadcraft"
 CADCRAFT_APPIMAGE_NAME="CADCraft.AppImage"
+# Headless CLI shipped inside the AppImage (usr/bin). Running the AppImage
+# always starts the GUI, so the CLI is copied out for the Claude Code MCP
+# server (`cadcraft-cli mcp`).
+CADCRAFT_CLI_NAME="cadcraft-cli"
+CADCRAFT_MCP_NAME="cadcraft"
 CADCRAFT_DOWNLOAD="$STATE_DIR/cadcraft-$TIMESTAMP.AppImage"
 CADCRAFT_SUMS_FILE="$STATE_DIR/cadcraft-$TIMESTAMP.SHA256SUMS.txt"
 CADCRAFT_EXTRACT_DIR="$STATE_DIR/cadcraft-extract-$TIMESTAMP"
@@ -143,13 +148,15 @@ verify_cadcraft_published_sha256() {
   return 0
 }
 
-# Only after the checksum passed: pull the hicolor icons out of the AppImage.
-extract_cadcraft_icons() {
+# Only after the checksum passed: pull the hicolor icons and the CLI out of
+# the AppImage.
+extract_cadcraft_files() {
   rm -rf "$CADCRAFT_EXTRACT_DIR"
   mkdir -p "$CADCRAFT_EXTRACT_DIR"
   (
     cd "$CADCRAFT_EXTRACT_DIR"
     "$CADCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
+    "$CADCRAFT_DOWNLOAD" --appimage-extract "usr/bin/$CADCRAFT_CLI_NAME" >/dev/null 2>&1 || true
   )
 }
 
@@ -157,6 +164,7 @@ install_cadcraft_files() {
   local owner="$USER"
   local group
   local icons="$CADCRAFT_EXTRACT_DIR/squashfs-root/usr/share/icons/hicolor"
+  local cli="$CADCRAFT_EXTRACT_DIR/squashfs-root/usr/bin/$CADCRAFT_CLI_NAME"
   local icon rel
 
   group="$(id -gn "$owner")"
@@ -166,6 +174,15 @@ install_cadcraft_files() {
   sudo mkdir -p "$CADCRAFT_INSTALL_DIR" || return 1
   sudo install -m 755 "$CADCRAFT_DOWNLOAD" "$CADCRAFT_INSTALL_DIR/$CADCRAFT_APPIMAGE_NAME.new" || return 1
   sudo mv -f "$CADCRAFT_INSTALL_DIR/$CADCRAFT_APPIMAGE_NAME.new" "$CADCRAFT_INSTALL_DIR/$CADCRAFT_APPIMAGE_NAME" || return 1
+  # Same rename for the CLI: MCP servers that are running keep the old file
+  # and get the new one on their next start.
+  if [ -x "$cli" ] && [ "$(head -c 4 "$cli")" = $'\x7fELF' ]; then
+    sudo install -m 755 "$cli" "$CADCRAFT_INSTALL_DIR/$CADCRAFT_CLI_NAME.new" || return 1
+    sudo mv -f "$CADCRAFT_INSTALL_DIR/$CADCRAFT_CLI_NAME.new" "$CADCRAFT_INSTALL_DIR/$CADCRAFT_CLI_NAME" || return 1
+    sudo ln -sfn "$CADCRAFT_INSTALL_DIR/$CADCRAFT_CLI_NAME" "/usr/local/bin/$CADCRAFT_CLI_NAME" || return 1
+  else
+    log "Could not extract $CADCRAFT_CLI_NAME from the AppImage; keeping the installed copy, if any"
+  fi
   # User owns the tree so a later in-app replace does not need root.
   sudo chown -R "$owner:$group" "$CADCRAFT_INSTALL_DIR" || return 1
   sudo ln -sfn "$CADCRAFT_INSTALL_DIR/$CADCRAFT_APPIMAGE_NAME" /usr/local/bin/cadcraft || return 1
@@ -211,6 +228,16 @@ EOF
   rm -rf "$CADCRAFT_EXTRACT_DIR" "$CADCRAFT_DOWNLOAD" "$CADCRAFT_SUMS_FILE"
 }
 
+# Add the CLI to Claude Code as a user-scope MCP server, unless a server of
+# that name already exists (left alone, so a hand-edited entry survives).
+register_cadcraft_mcp() {
+  if claude mcp get "$CADCRAFT_MCP_NAME" >/dev/null 2>&1; then
+    log "Claude Code already has the $CADCRAFT_MCP_NAME MCP server"
+    return 0
+  fi
+  claude mcp add --scope user "$CADCRAFT_MCP_NAME" -- "$CADCRAFT_INSTALL_DIR/$CADCRAFT_CLI_NAME" mcp
+}
+
 install_cadcraft() {
   if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1 && ! command -v gh >/dev/null 2>&1; then
     FAILURES+=("resolve CADCraft AppImage (missing required command: curl, wget, or gh)")
@@ -238,11 +265,17 @@ install_cadcraft() {
   fi
 
   chmod 700 "$CADCRAFT_DOWNLOAD"
-  extract_cadcraft_icons
+  extract_cadcraft_files
 
   log "Verified CADCraft AppImage; installing to $CADCRAFT_INSTALL_DIR"
 
-  close_running_app "CADCraft" "$CADCRAFT_INSTALL_DIR" || return 0
+  # Only the GUI: the whole install dir would also match the cadcraft-cli
+  # MCP servers Claude Code is running, which survive the rename above.
+  close_running_app "CADCraft" "$CADCRAFT_INSTALL_DIR/$CADCRAFT_APPIMAGE_NAME" || return 0
 
   run_step "install CADCraft AppImage" install_cadcraft_files
+
+  if [ -x "$CADCRAFT_INSTALL_DIR/$CADCRAFT_CLI_NAME" ] && command -v claude >/dev/null 2>&1; then
+    run_step "register CADCraft MCP server in Claude Code" register_cadcraft_mcp
+  fi
 }
