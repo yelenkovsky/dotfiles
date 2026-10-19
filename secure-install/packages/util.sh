@@ -7,6 +7,7 @@ PACMAN_UTIL_PACKAGES=(
   fzf
   gnupg
   pv
+  sshfs
   stow
   tree
   unzip
