@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package spotify 240 "Spotify" install_spotify
 
 # Official amd64 spotify-client from the vendor Debian repo (not snap, not i386).
@@ -14,6 +15,7 @@ SPOTIFY_DEB="$STATE_DIR/spotify-$TIMESTAMP.deb"
 SPOTIFY_INSTALL_DIR="/opt/spotify"
 SPOTIFY_DEB_URL=""
 SPOTIFY_SHA256=""
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 SPOTIFY_RUNTIME_PACKAGES=(
   alsa-lib
   gtk3
@@ -41,6 +43,7 @@ verify_spotify_packages_signature() {
   local actual_hash=""
 
   rm -rf "$SPOTIFY_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$SPOTIFY_GPG_HOME"
 
   status="$(

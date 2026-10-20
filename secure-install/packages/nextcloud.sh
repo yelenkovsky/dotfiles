@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package nextcloud 110 "Nextcloud desktop AppImage" install_nextcloud
 
 NEXTCLOUD_LATEST_RELEASE_URL="https://github.com/nextcloud-releases/desktop/releases/latest"
@@ -62,6 +63,7 @@ verify_nextcloud_appimage_signature() {
   local status=""
 
   rm -rf "$NEXTCLOUD_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$NEXTCLOUD_GPG_HOME"
 
   status="$(
@@ -95,7 +97,7 @@ extract_nextcloud_icon() {
 
   mkdir -p "$NEXTCLOUD_ICON_DIR"
   (
-    cd "$NEXTCLOUD_ICON_DIR"
+    cd "$NEXTCLOUD_ICON_DIR" || exit 1
     "$NEXTCLOUD_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/512x512/apps/*' >/dev/null 2>&1 || true
     "$NEXTCLOUD_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/256x256/apps/*' >/dev/null 2>&1 || true
     "$NEXTCLOUD_DOWNLOAD" --appimage-extract '*.png' >/dev/null 2>&1 || true

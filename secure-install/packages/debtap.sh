@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package debtap 260 "debtap" install_debtap
 
 DEBTAP_RELEASES_API="https://api.github.com/repos/helixarch/debtap/releases/latest"
@@ -5,6 +6,7 @@ DEBTAP_TARBALL="$STATE_DIR/debtap-$TIMESTAMP.tar.gz"
 DEBTAP_EXTRACT="$STATE_DIR/debtap-extract-$TIMESTAMP"
 DEBTAP_BIN="/usr/local/bin/debtap"
 DEBTAP_TARBALL_URL=""
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 DEBTAP_RUNTIME_PACKAGES=(
   binutils
   fakeroot

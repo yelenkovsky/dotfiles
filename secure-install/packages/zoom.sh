@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package zoom 340 "Zoom Workplace" install_zoom
 
 # Official linux amd64 .deb from the latest redirect (not rpm, not the Arch
@@ -12,6 +13,7 @@ ZOOM_GPG_KEY="$STATE_DIR/zoom-signing-key-$TIMESTAMP.pub"
 ZOOM_GPG_HOME="$STATE_DIR/zoom-gnupg-$TIMESTAMP"
 ZOOM_INSTALL_DIR="/opt/zoom"
 ZOOM_DEB_URL=""
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 ZOOM_RUNTIME_PACKAGES=(
   dbus
   desktop-file-utils
@@ -91,6 +93,7 @@ verify_zoom_signature() {
   local saw_data=0
 
   rm -rf "$ZOOM_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$ZOOM_GPG_HOME"
 
   status="$(

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package rustdesk 310 "RustDesk" install_rustdesk
 
 # Official Arch x86_64 package from GitHub releases/latest (not the .deb, rpm,
@@ -7,6 +8,7 @@ RUSTDESK_INSTALL_DIR="/opt/rustdesk"
 RUSTDESK_DOWNLOAD="$STATE_DIR/rustdesk-$TIMESTAMP.pkg.tar.zst"
 RUSTDESK_DOWNLOAD_URL=""
 RUSTDESK_SHA256=""
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 RUSTDESK_RUNTIME_PACKAGES=(
   alsa-lib
   gst-plugin-pipewire

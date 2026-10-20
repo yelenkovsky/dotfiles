@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package portmaster 205 "Portmaster (daemon and UI)" install_portmaster
 
 # Desktop v2 linux amd64 .deb from the download page (not the v1
@@ -11,6 +12,7 @@ PORTMASTER_DEB="$STATE_DIR/portmaster-$TIMESTAMP.deb"
 PORTMASTER_LIB_DIR="/usr/lib/portmaster"
 PORTMASTER_DEB_URL=""
 PORTMASTER_SHA256=""
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 PORTMASTER_RUNTIME_PACKAGES=(
   gtk3
   libayatana-appindicator

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package proton-pass 140 "Proton Pass desktop" install_proton_pass
 
 PROTON_PASS_VERSION_URL="https://proton.me/download/pass/linux/version.json"

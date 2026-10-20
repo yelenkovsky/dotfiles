@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 FAILURES=()
 
 declare -a PACKAGE_IDS=()

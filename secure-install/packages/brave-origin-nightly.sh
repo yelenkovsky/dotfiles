@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package brave-origin-nightly 210 "Brave Origin Nightly" install_brave_origin_nightly
 
 BRAVE_ORIGIN_NIGHTLY_RELEASES_API="https://api.github.com/repos/brave/brave-browser/releases?per_page=20"
@@ -62,6 +63,7 @@ verify_brave_origin_nightly() {
   local actual_hash=""
 
   rm -rf "$BRAVE_ORIGIN_NIGHTLY_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$BRAVE_ORIGIN_NIGHTLY_GPG_HOME"
 
   status="$(

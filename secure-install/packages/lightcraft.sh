@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package lightcraft 390 "LightCraft photo library and raw developer" install_lightcraft
 
 # Latest GitHub release, linux x86_64 AppImage only. Same author and release
@@ -152,7 +153,7 @@ extract_lightcraft_icons() {
   rm -rf "$LIGHTCRAFT_EXTRACT_DIR"
   mkdir -p "$LIGHTCRAFT_EXTRACT_DIR"
   (
-    cd "$LIGHTCRAFT_EXTRACT_DIR"
+    cd "$LIGHTCRAFT_EXTRACT_DIR" || exit 1
     "$LIGHTCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
   )
 }

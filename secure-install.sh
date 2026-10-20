@@ -200,15 +200,15 @@ check_for_updates() {
   # One "id<TAB>changelog" line per pending update. Merge: a check of some
   # packages (--only) must not forget pending updates of the others, so drop
   # the checked ids from the list, then add what is new.
-  local list="$RECORD_DIR/updates-available.txt"
+  local pending_file="$RECORD_DIR/updates-available.txt"
   {
-    [ -f "$list" ] && awk -F '\t' 'NR == FNR { checked[$1] = 1; next } !($1 in checked)' \
-      <(printf '%s\n' "$@") "$list"
+    [ -f "$pending_file" ] && awk -F '\t' 'NR == FNR { checked[$1] = 1; next } !($1 in checked)' \
+      <(printf '%s\n' "$@") "$pending_file"
     for id in "${updates[@]}"; do
       printf '%s\t%s\n' "$id" "${link_for[$id]}"
     done
-  } | sed '/^$/d' | sort -u -t $'\t' -k1,1 >"$list.tmp"
-  mv "$list.tmp" "$list"
+  } | sed '/^$/d' | sort -u -t $'\t' -k1,1 >"$pending_file.tmp"
+  mv "$pending_file.tmp" "$pending_file"
 
   echo
   if [ "${#updates[@]}" -gt 0 ]; then
@@ -240,6 +240,7 @@ main() {
         shift
         ;;
       --stop-on-error)
+        # shellcheck disable=SC2034  # read by the sourced secure-install/lib.sh
         STOP_ON_ERROR=true
         shift
         ;;
@@ -255,6 +256,7 @@ main() {
         shift
         ;;
       --yes)
+        # shellcheck disable=SC2034  # read by the sourced secure-install/lib.sh
         ASSUME_YES=true
         shift
         ;;
@@ -344,6 +346,7 @@ main() {
   mkdir -p "$STATE_DIR"
   : >"$LOG_FILE"
   : >"$STATUS_FILE"
+  # shellcheck disable=SC2034  # read by the sourced secure-install/lib.sh
   INSTALLED_FILE="$RECORD_DIR/installed.tsv"
   FINGERPRINT_DIR="$STATE_DIR/fingerprints-$TIMESTAMP"
   mkdir -p "$FINGERPRINT_DIR"
@@ -370,6 +373,7 @@ main() {
     failures_before=${#FAILURES[@]}
     CURRENT_PACKAGE="$id"
     "${PACKAGE_INSTALLER[$id]}"
+    # shellcheck disable=SC2034  # read by the sourced secure-install/lib.sh
     CURRENT_PACKAGE=""
     reopen_closed_apps
 

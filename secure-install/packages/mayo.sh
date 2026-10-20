@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package mayo 330 "Mayo CAD viewer" install_mayo
 
 # Latest GitHub release, linux x86_64 glibc AppImages only.
@@ -150,7 +151,7 @@ extract_mayo_icon() {
 
   mkdir -p "$MAYO_ICON_DIR"
   (
-    cd "$MAYO_ICON_DIR"
+    cd "$MAYO_ICON_DIR" || exit 1
     "$MAYO_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/*/apps/*' >/dev/null 2>&1 || true
     "$MAYO_DOWNLOAD" --appimage-extract 'usr/share/pixmaps/*' >/dev/null 2>&1 || true
     "$MAYO_DOWNLOAD" --appimage-extract '*.png' >/dev/null 2>&1 || true

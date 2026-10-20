@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package omf 70 "Oh My Fish" install_omf
 
 OMF_INSTALLER="$STATE_DIR/omf-install-$TIMESTAMP.fish"

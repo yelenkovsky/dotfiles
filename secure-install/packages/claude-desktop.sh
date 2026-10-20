@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package claude-desktop 300 "Claude Desktop" install_claude_desktop
 
 # Official linux/amd64 glibc .deb from Anthropic's stable apt repo (not arm64,
@@ -37,6 +38,7 @@ verify_claude_desktop_packages_signature() {
   local actual_hash=""
 
   rm -rf "$CLAUDE_DESKTOP_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$CLAUDE_DESKTOP_GPG_HOME"
 
   status="$(

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package gridcraft 370 "GridCraft spreadsheet (XLSX/ODS/CSV)" install_gridcraft
 
 # Latest GitHub release, linux x86_64 AppImage only. Same author and release
@@ -154,7 +155,7 @@ extract_gridcraft_icons() {
   rm -rf "$GRIDCRAFT_EXTRACT_DIR"
   mkdir -p "$GRIDCRAFT_EXTRACT_DIR"
   (
-    cd "$GRIDCRAFT_EXTRACT_DIR"
+    cd "$GRIDCRAFT_EXTRACT_DIR" || exit 1
     "$GRIDCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
   )
 }

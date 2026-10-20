@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package proton-bridge 150 "Proton Mail Bridge" install_proton_bridge
 
 PROTON_BRIDGE_LATEST_RELEASE_URL="https://github.com/ProtonMail/proton-bridge/releases/latest"
@@ -13,6 +14,7 @@ PROTON_BRIDGE_DOWNLOAD_URL=""
 register_update_check proton-bridge "$PROTON_BRIDGE_DEB"
 register_changelog proton-bridge 'https://github.com/ProtonMail/proton-bridge/releases/tag/{version}' '/releases/download/([^/]+)/' 'https://github.com/ProtonMail/proton-bridge/releases'
 # Vendor PKGBUILD runtime dep for the `bridge` backend (libfido2.so.1).
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 PROTON_BRIDGE_RUNTIME_PACKAGES=(
   libfido2
 )
@@ -78,6 +80,7 @@ verify_proton_bridge_signature() {
   local status=""
 
   rm -rf "$PROTON_BRIDGE_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$PROTON_BRIDGE_GPG_HOME"
 
   status="$(
