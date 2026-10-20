@@ -7,6 +7,7 @@ AUR_PACKAGES=(
   optimus-manager-git
   ttf-ms-fonts
   ttf-vista-fonts
+  dragon-drop # drag files out of Yazi (Alt+d)
 )
 
 install_aur() {

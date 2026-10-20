@@ -30,6 +30,7 @@ PACMAN_DESKTOP_PACKAGES=(
   vlc
   vlc-plugins-all
   yazi
+  perl-image-exiftool # exiftool, for Yazi's "Show EXIF"
   resvg
   chafa
 )
