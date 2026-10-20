@@ -1,5 +1,7 @@
+# shellcheck shell=bash
 register_package aur 60 "AUR packages" install_aur
 
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 AUR_PACKAGES=(
   pbpctrl
   optimus-manager-git

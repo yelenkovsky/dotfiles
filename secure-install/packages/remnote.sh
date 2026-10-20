@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package remnote 90 "RemNote AppImage" install_remnote
 
 REMNOTE_DOWNLOAD_URL="https://backend.remnote.com/desktop/linux"
@@ -22,7 +23,7 @@ extract_remnote_icon() {
 
   mkdir -p "$REMNOTE_ICON_DIR"
   (
-    cd "$REMNOTE_ICON_DIR"
+    cd "$REMNOTE_ICON_DIR" || exit 1
     # RemNote ships the 512px PNG only under hicolor/0x0, not 512x512.
     "$REMNOTE_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/*/apps/*' >/dev/null 2>&1 || true
     "$REMNOTE_DOWNLOAD" --appimage-extract 'usr/share/pixmaps/*' >/dev/null 2>&1 || true

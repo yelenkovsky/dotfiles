@@ -1,8 +1,10 @@
+# shellcheck shell=bash
 register_package gaming 50 "Gaming packages" install_gaming
 
 # proton-cachyos-slr on the AUR is the baseline x86_64 Steam Linux Runtime build.
 # The x86-64-v3 build is a separate GitHub release asset. Steam discovers it
 # only from compatibilitytools.d, which is why it does not go under /opt.
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 PACMAN_GAMING_PACKAGES=(
   steam
   gamemode
@@ -12,6 +14,7 @@ PACMAN_GAMING_PACKAGES=(
   nvidia-prime
 )
 
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 AUR_GAMING_PACKAGES=(
   mangojuice
 )

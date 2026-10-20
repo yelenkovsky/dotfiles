@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package todoist 100 "Todoist AppImage" install_todoist
 
 TODOIST_DOWNLOAD_URL="https://todoist.com/linux_app/appimage"
@@ -17,7 +18,7 @@ extract_todoist_icon() {
 
   mkdir -p "$TODOIST_ICON_DIR"
   (
-    cd "$TODOIST_ICON_DIR"
+    cd "$TODOIST_ICON_DIR" || exit 1
     "$TODOIST_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/512x512/apps/*' >/dev/null 2>&1 || true
     "$TODOIST_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/256x256/apps/*' >/dev/null 2>&1 || true
     "$TODOIST_DOWNLOAD" --appimage-extract '*.png' >/dev/null 2>&1 || true

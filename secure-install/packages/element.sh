@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package element 180 "Element Desktop" install_element
 
 ELEMENT_PACKAGES_URL="https://packages.element.io/debian/dists/default/main/binary-amd64/Packages"
@@ -29,6 +30,7 @@ verify_element_packages_signature() {
   local actual_hash=""
 
   rm -rf "$ELEMENT_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$ELEMENT_GPG_HOME"
 
   status="$(

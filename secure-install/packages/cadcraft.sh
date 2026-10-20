@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package cadcraft 360 "CADCraft 2D drafting (DXF/DWG)" install_cadcraft
 
 # Latest GitHub release, linux x86_64 AppImage only. Same author and release
@@ -154,7 +155,7 @@ extract_cadcraft_files() {
   rm -rf "$CADCRAFT_EXTRACT_DIR"
   mkdir -p "$CADCRAFT_EXTRACT_DIR"
   (
-    cd "$CADCRAFT_EXTRACT_DIR"
+    cd "$CADCRAFT_EXTRACT_DIR" || exit 1
     "$CADCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
     "$CADCRAFT_DOWNLOAD" --appimage-extract "usr/bin/$CADCRAFT_CLI_NAME" >/dev/null 2>&1 || true
   )

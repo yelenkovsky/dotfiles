@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package wordcraft 380 "WordCraft word processor (DOCX/ODT)" install_wordcraft
 
 # Latest GitHub release, linux x86_64 AppImage only. Same author and release
@@ -154,7 +155,7 @@ extract_wordcraft_icons() {
   rm -rf "$WORDCRAFT_EXTRACT_DIR"
   mkdir -p "$WORDCRAFT_EXTRACT_DIR"
   (
-    cd "$WORDCRAFT_EXTRACT_DIR"
+    cd "$WORDCRAFT_EXTRACT_DIR" || exit 1
     "$WORDCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
   )
 }

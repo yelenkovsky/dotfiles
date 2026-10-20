@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package pomotroid 250 "Pomotroid AppImage" install_pomotroid
 
 POMOTROID_RELEASES_API="https://api.github.com/repos/Splode/pomotroid/releases/latest"
@@ -76,7 +77,7 @@ extract_pomotroid_icon() {
 
   mkdir -p "$POMOTROID_ICON_DIR"
   (
-    cd "$POMOTROID_ICON_DIR"
+    cd "$POMOTROID_ICON_DIR" || exit 1
     "$POMOTROID_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/512x512/apps/*' >/dev/null 2>&1 || true
     "$POMOTROID_DOWNLOAD" --appimage-extract 'usr/share/icons/hicolor/256x256/apps/*' >/dev/null 2>&1 || true
     "$POMOTROID_DOWNLOAD" --appimage-extract '*.png' >/dev/null 2>&1 || true

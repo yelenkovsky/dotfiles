@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package deckcraft 400 "DeckCraft presentations (PPTX)" install_deckcraft
 
 # Latest GitHub release, linux x86_64 AppImage only. Same author and release
@@ -152,7 +153,7 @@ extract_deckcraft_icons() {
   rm -rf "$DECKCRAFT_EXTRACT_DIR"
   mkdir -p "$DECKCRAFT_EXTRACT_DIR"
   (
-    cd "$DECKCRAFT_EXTRACT_DIR"
+    cd "$DECKCRAFT_EXTRACT_DIR" || exit 1
     "$DECKCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
   )
 }

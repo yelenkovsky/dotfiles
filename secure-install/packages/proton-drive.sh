@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package proton-drive 120 "Proton Drive CLI" install_proton_drive
 
 PROTON_DRIVE_INDEX_URL="https://proton.me/download/drive/cli/index.html"

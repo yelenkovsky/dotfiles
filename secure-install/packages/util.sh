@@ -1,5 +1,7 @@
+# shellcheck shell=bash
 register_package util 30 "Utility pacman packages" install_util
 
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 PACMAN_UTIL_PACKAGES=(
   cpupower
   eza

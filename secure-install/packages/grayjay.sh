@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package grayjay 270 "Grayjay" install_grayjay
 
 # Official linux-x64 zip from the Grayjay desktop page (not arm64, not
@@ -6,6 +7,7 @@ register_package grayjay 270 "Grayjay" install_grayjay
 GRAYJAY_DOWNLOAD_URL="https://updater.grayjay.app/Apps/Grayjay.Desktop/Grayjay.Desktop-linux-x64.zip"
 GRAYJAY_INSTALL_DIR="/opt/grayjay"
 GRAYJAY_DOWNLOAD="$STATE_DIR/grayjay-$TIMESTAMP.zip"
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 GRAYJAY_RUNTIME_PACKAGES=(
   at-spi2-core
   gtk3

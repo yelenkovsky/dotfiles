@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package rustdesk-server 320 "RustDesk Server OSS" install_rustdesk_server
 
 # Free OSS ID server (hbbs) and relay (hbbr) from GitHub releases/latest.
@@ -75,7 +76,6 @@ download_rustdesk_server_zip() {
 install_rustdesk_server_files() {
   local work="$STATE_DIR/rustdesk-server-extract-$TIMESTAMP"
   local binary=""
-  local i=""
 
   rm -rf "$work"
   mkdir -p "$work"
@@ -145,7 +145,7 @@ EOF
   if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
     sudo systemctl daemon-reload
     sudo systemctl enable --now rustdesk-hbbs.service rustdesk-hbbr.service
-    for i in 1 2 3 4 5 6 7 8 9 10; do
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
       if sudo test -s "$RUSTDESK_SERVER_DATA_DIR/id_ed25519.pub"; then
         log "RustDesk server public key: $(sudo cat "$RUSTDESK_SERVER_DATA_DIR/id_ed25519.pub")"
         log "In the client, set ID server to this host and paste that key. Open TCP 21115-21117 and UDP 21116."

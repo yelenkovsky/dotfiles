@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package pass-cli 130 "Proton Pass CLI" install_pass_cli
 
 PASS_CLI_DOWNLOAD_URL="https://github.com/protonpass/pass-cli/releases/latest/download/pass-cli-linux-x86_64"

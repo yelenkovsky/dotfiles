@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package pdfcraft 350 "PdfCraft PDF workbench (formerly PrintCraft)" install_pdfcraft
 
 # Latest GitHub release, linux x86_64 AppImage only. The project was renamed
@@ -159,7 +160,7 @@ verify_pdfcraft_bundled_models() {
   rm -rf "$PDFCRAFT_EXTRACT_DIR"
   mkdir -p "$PDFCRAFT_EXTRACT_DIR"
   (
-    cd "$PDFCRAFT_EXTRACT_DIR"
+    cd "$PDFCRAFT_EXTRACT_DIR" || exit 1
     "$PDFCRAFT_DOWNLOAD" --appimage-extract 'usr/share/pdfcraft/models/*' >/dev/null 2>&1 || true
     "$PDFCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
   )

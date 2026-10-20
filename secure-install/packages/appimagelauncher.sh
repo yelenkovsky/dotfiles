@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package appimagelauncher 80 "AppImageLauncher x86_64 AppImage" install_appimagelauncher
 
 APPIMAGELAUNCHER_RELEASES_API="https://api.github.com/repos/TheAssassin/AppImageLauncher/releases/latest"

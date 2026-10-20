@@ -1,5 +1,7 @@
+# shellcheck shell=bash
 register_package core 10 "Core pacman packages" install_core
 
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 PACMAN_CORE_PACKAGES=(
   ghostty
   fish

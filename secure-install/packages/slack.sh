@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package slack 280 "Slack" install_slack
 
 # Official linux/x64 glibc amd64 .deb from the Linux download page (not rpm,
@@ -8,7 +9,7 @@ SLACK_DEB="$STATE_DIR/slack-$TIMESTAMP.deb"
 SLACK_SHA256_FILE="$STATE_DIR/slack-$TIMESTAMP.deb.sha256"
 SLACK_INSTALL_DIR="/opt/slack"
 SLACK_DEB_URL=""
-SLACK_SHA256=""
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 SLACK_RUNTIME_PACKAGES=(
   at-spi2-core
   gtk3

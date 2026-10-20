@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package audiorelay 290 "AudioRelay desktop" install_audiorelay
 
 # Official linux x86_64 glibc tarball from the unversioned downloads API.

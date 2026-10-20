@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package zotero 170 "Zotero" install_zotero
 
 # Official linux-x86_64 glibc tarball via the unversioned release redirect.

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package dbeaver 190 "DBeaver CE" install_dbeaver
 
 # Community Edition linux-x86_64 tarball via the unversioned /files/latest URL.

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package mullvad 200 "Mullvad VPN (daemon, CLI, GUI)" install_mullvad
 
 # Newest desktop linux amd64 .deb (stable or beta; not arm64, not rpm, not
@@ -13,6 +14,7 @@ MULLVAD_GPG_KEY="$STATE_DIR/mullvad-signing-key-$TIMESTAMP.asc"
 MULLVAD_GPG_HOME="$STATE_DIR/mullvad-gnupg-$TIMESTAMP"
 MULLVAD_DOWNLOAD_URL=""
 MULLVAD_SHA256=""
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 MULLVAD_RUNTIME_PACKAGES=(
   dbus
   iputils
@@ -101,6 +103,7 @@ verify_mullvad_signature() {
   local status=""
 
   rm -rf "$MULLVAD_GPG_HOME"
+  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
   mkdir -m 700 -p "$MULLVAD_GPG_HOME"
 
   status="$(

@@ -1,5 +1,7 @@
+# shellcheck shell=bash
 register_package desktop 20 "Desktop pacman packages" install_desktop
 
+# shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
 PACMAN_DESKTOP_PACKAGES=(
   file-roller
   flameshot

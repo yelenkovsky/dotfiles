@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 register_package betterbird 160 "Betterbird" install_betterbird
 
 BETTERBIRD_GETLOC_URL="https://www.betterbird.eu/downloads/getloc.php?os=linux&lang=en-US&version=release"
