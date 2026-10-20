@@ -2,3 +2,8 @@
 on   = "<A-s>"
 run  = 'shell --block -- du -sch %s 2>/dev/null | tail -1; read _'
 desc = "Total size of selection"
+
+[[mgr.prepend_keymap]]
+on   = "<A-d>"
+run  = 'shell -- dragon-drop -x -a %s'
+desc = "Drag selection out (dragon-drop)"
