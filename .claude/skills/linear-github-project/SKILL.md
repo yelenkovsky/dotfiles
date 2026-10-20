@@ -21,12 +21,22 @@ project. With it on, issues leaked into the wrong repo, deleting a GitHub issue
 archived its Linear issue, and new GitHub issues came back into Linear as
 duplicates. Never turn the sync on, and never suggest it as a fix.
 
+Linear's PR linkback comments are also off (Settings → Integrations →
+GitHub, turned off 2026-10-20), so a PR gets no `linear-code[bot]` comment. A
+bot comment on a new PR means that setting is back on: tell the user, do not
+treat it as review feedback.
+
 ## Project registry
 
 | GitHub repo | Linear project | Default branch |
 |---|---|---|
 | `yelenkovsky/dotfiles` | Dotfiles & secure-install (`P-DE-28`) | `main` |
 | `yelenkovsky/dotfiles-private` | Dotfiles (private) (`P-DE-29`) | `main` |
+| `yelenkovsky/fachstal` | Fachstal website (`P-DE-33`) | `master` |
+| `yelenkovsky/tailscale` | Fachstal tailnet (`P-DE-31`) | `master` |
+| `yelenkovsky/omarchy-plugin-guard` | Omarchy plugin guard (`P-DE-30`) | `main` |
+| `yelenkovsky/supabase` | Supabase expenses DB (`P-DE-32`) | `master` |
+| `yelenkovsky/english` | English B2 First (`P-DE-34`) | `main` |
 
 Add a row when a repo is onboarded. A repo with no row is not onboarded: run
 **Onboard a repo** first, or ask which Linear project it belongs to.
@@ -53,7 +63,7 @@ Label mapping:
 |---|---|
 | feature, foundation, improvement | enhancement |
 | bug | bug |
-| docs work | documentation |
+| documentation | documentation |
 
 ### Work on it
 
@@ -131,6 +141,13 @@ jobs:
 After adding CI, suggest branch protection on the default branch (require the
 CI job, require a PR). It changes repo settings, so the user decides and I only
 run `gh api` for it on their yes.
+
+Branch protection and rulesets only work on public repos on my GitHub plan
+(Free). Check `gh api repos/<repo> --jq .visibility` first; don't keep a list
+of private repos here, it goes stale. On a private repo, don't suggest it (the
+API refuses with "Upgrade to GitHub Pro or make this repository public"): CI
+stays a gate by convention only, so never merge on red and never push straight
+to the default branch.
 
 ## CD / releases
 
