@@ -58,6 +58,10 @@ link_if_present ".config/eza" "$HOME/.config/eza"
 link_if_present ".config/ghostty" "$HOME/.config/ghostty"
 
 echo ""
+echo "File manager"
+link_if_present ".config/yazi" "$HOME/.config/yazi"
+
+echo ""
 echo "GitHub CLI config (hosts.yml is not in this repo)"
 if [ -f "$DOTFILES_DIR/.config/gh/config.yml" ]; then
     mkdir -p "$HOME/.config/gh"

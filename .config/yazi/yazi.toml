@@ -7,8 +7,27 @@ linemode = "size"
 max_width = 1000
 max_height = 1000
 
-# Default play opener is mpv; open videos with VLC instead.
 [opener]
+edit = [
+	{ run = 'nvim %s', block = true, desc = "nvim", for = "unix" },
+]
+open = [
+	{ run = 'xdg-open %s', orphan = true, desc = "Open", for = "linux" },
+]
 play = [
 	{ run = 'vlc --started-from-file %s', orphan = true, desc = "VLC", for = "unix" },
 ]
+
+[open]
+rules = [
+	{ url = "*.md", use = [ "edit", "open", "reveal" ] },
+	{ mime = "text/markdown", use = [ "edit", "open", "reveal" ] },
+	{ mime = "{audio,video}/*", use = [ "play", "open", "reveal" ] },
+	{ mime = "text/*", use = [ "open", "edit", "reveal" ] },
+	{ mime = "inode/empty", use = [ "open", "edit", "reveal" ] },
+	{ mime = "application/{json,ndjson,javascript,wine-extension-ini}", use = [ "open", "edit", "reveal" ] },
+	{ url = "*", use = [ "open", "reveal" ] },
+]
+
+[tasks]
+suppress_preload = true
