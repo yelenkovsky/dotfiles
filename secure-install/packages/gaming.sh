@@ -161,6 +161,27 @@ remove_baseline_proton_cachyos_slr() {
   "${command[@]}"
 }
 
+# gamemoded runs as the user and asks polkit (via pkexec) for its root helpers,
+# such as cpugovctl and procsysctl split_lock_mitigate. The gamemode package's
+# polkit rule allows them only for members of the gamemode group. Without the
+# group those optimisations fail silently. The change takes effect at next login.
+add_user_to_gamemode_group() {
+  local user="${USER:-$(id -un)}"
+
+  if ! getent group gamemode >/dev/null 2>&1; then
+    log "No gamemode group; is the gamemode package installed?"
+    return 1
+  fi
+
+  if id -nG "$user" | tr ' ' '\n' | grep -qx gamemode; then
+    log "$user is already in the gamemode group"
+    return 0
+  fi
+
+  sudo usermod -aG gamemode "$user"
+  log "Added $user to the gamemode group; log out and back in to apply it"
+}
+
 install_proton_cachyos_ntsync() {
   if ! modinfo ntsync >/dev/null 2>&1; then
     log "Kernel has no ntsync module; skipping modules-load.d entry"
@@ -277,5 +298,6 @@ install_proton_cachyos_slr_v3() {
 install_gaming() {
   install_package_group pacman "Gaming packages" PACMAN_GAMING_PACKAGES
   install_package_group yay "Gaming AUR packages" AUR_GAMING_PACKAGES
+  run_step "add user to gamemode group" add_user_to_gamemode_group
   install_proton_cachyos_slr_v3
 }
