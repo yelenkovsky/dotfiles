@@ -1,5 +1,9 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
+# Default 30ms is too short for the first prompt after boot (cold disk cache).
+scan_timeout = 100
+command_timeout = 1000
+
 format = """
 [](red)\
 $os\
