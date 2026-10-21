@@ -4,7 +4,7 @@ set -g fish_greeting
 set -gx SSH_AUTH_SOCK $HOME/.ssh/proton-pass-ssh-agent.sock
 
 # pass-cli and other user binaries (must be on PATH before interactive pass-cli calls)
-fish_add_path $HOME/.local/bin
+fish_add_path -g $HOME/.local/bin
 
 if status is-interactive
     starship init fish | source
