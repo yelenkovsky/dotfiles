@@ -8,8 +8,9 @@ ELEMENT_GPG_KEY_URL="https://packages.element.io/debian/element-io-archive-keyri
 ELEMENT_GPG_FINGERPRINT="12D4CD600C2240A9F4A82071D7B0B66941D01538"
 ELEMENT_PACKAGES="$STATE_DIR/element-desktop-$TIMESTAMP.Packages"
 ELEMENT_INRELEASE="$STATE_DIR/element-desktop-$TIMESTAMP.InRelease"
+# The signed text of InRelease, written by verify_clearsigned.
+ELEMENT_RELEASE="$STATE_DIR/element-desktop-$TIMESTAMP.Release"
 ELEMENT_GPG_KEY="$STATE_DIR/element-desktop-signing-key-$TIMESTAMP.gpg"
-ELEMENT_GPG_HOME="$STATE_DIR/element-desktop-gnupg-$TIMESTAMP"
 ELEMENT_DEB="$STATE_DIR/element-desktop-$TIMESTAMP.deb"
 ELEMENT_INSTALL_DIR="/opt/element-desktop"
 ELEMENT_DEB_URL=""
@@ -24,38 +25,12 @@ download_element_metadata() {
 }
 
 verify_element_packages_signature() {
-  local imported_fingerprint=""
-  local status=""
   local expected_hash=""
   local actual_hash=""
 
-  rm -rf "$ELEMENT_GPG_HOME"
-  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
-  mkdir -m 700 -p "$ELEMENT_GPG_HOME"
-
-  status="$(
-    export GNUPGHOME="$ELEMENT_GPG_HOME"
-    gpg --batch --import "$ELEMENT_GPG_KEY" >/dev/null
-    gpg --batch --with-colons --fingerprint
-  )" || return 1
-
-  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
-  if [ "$imported_fingerprint" != "$ELEMENT_GPG_FINGERPRINT" ]; then
-    log "Element signing key fingerprint mismatch (expected $ELEMENT_GPG_FINGERPRINT, got $imported_fingerprint)"
-    return 1
-  fi
-
-  status="$(
-    export GNUPGHOME="$ELEMENT_GPG_HOME"
-    gpg --batch --status-fd 1 --verify "$ELEMENT_INRELEASE" 2>/dev/null
-  )" || true
-
-  # InRelease is signed with the signing subkey. VALIDSIG's first fingerprint is
-  # that subkey; the primary fingerprint is the last field.
-  if ! printf '%s\n' "$status" | awk -v fpr="$ELEMENT_GPG_FINGERPRINT" '
-    $2 == "VALIDSIG" && $NF == fpr { found = 1 }
-    END { exit !found }
-  '; then
+  # InRelease is signed with the signing subkey; verify_clearsigned matches
+  # the pinned primary fingerprint.
+  if ! verify_clearsigned "$ELEMENT_GPG_KEY" "$ELEMENT_GPG_FINGERPRINT" "$ELEMENT_INRELEASE" "$ELEMENT_RELEASE"; then
     log "Element InRelease GPG verification failed"
     return 1
   fi
@@ -65,7 +40,7 @@ verify_element_packages_signature() {
       $0 == "SHA256:" { in_sha = 1; next }
       in_sha && /^[A-Z]/ { in_sha = 0 }
       in_sha && $3 == "main/binary-amd64/Packages" { print $1; exit }
-    ' "$ELEMENT_INRELEASE"
+    ' "$ELEMENT_RELEASE"
   )"
   actual_hash="$(sha256sum "$ELEMENT_PACKAGES" | awk '{ print $1 }')"
   if [ -z "$expected_hash" ] || [ "$actual_hash" != "$expected_hash" ]; then
@@ -192,7 +167,7 @@ EOF
     sudo install -D -m 644 "$icon" /usr/share/pixmaps/element-desktop.png || return 1
   fi
 
-  rm -rf "$work" "$ELEMENT_DEB" "$ELEMENT_PACKAGES" "$ELEMENT_INRELEASE" "$ELEMENT_GPG_KEY" "$ELEMENT_GPG_HOME"
+  rm -rf "$work" "$ELEMENT_DEB" "$ELEMENT_PACKAGES" "$ELEMENT_INRELEASE" "$ELEMENT_RELEASE" "$ELEMENT_GPG_KEY"
 }
 
 install_element() {

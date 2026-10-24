@@ -9,8 +9,9 @@ SPOTIFY_GPG_KEY_URL="https://download.spotify.com/debian/pubkey_5384CE82BA52C83A
 SPOTIFY_GPG_FINGERPRINT="E1096BCBFF6D418796DE78515384CE82BA52C83A"
 SPOTIFY_PACKAGES="$STATE_DIR/spotify-$TIMESTAMP.Packages"
 SPOTIFY_INRELEASE="$STATE_DIR/spotify-$TIMESTAMP.InRelease"
+# The signed text of InRelease, written by verify_clearsigned.
+SPOTIFY_RELEASE="$STATE_DIR/spotify-$TIMESTAMP.Release"
 SPOTIFY_GPG_KEY="$STATE_DIR/spotify-signing-key-$TIMESTAMP.asc"
-SPOTIFY_GPG_HOME="$STATE_DIR/spotify-gnupg-$TIMESTAMP"
 SPOTIFY_DEB="$STATE_DIR/spotify-$TIMESTAMP.deb"
 SPOTIFY_INSTALL_DIR="/opt/spotify"
 SPOTIFY_DEB_URL=""
@@ -37,36 +38,10 @@ download_spotify_metadata() {
 }
 
 verify_spotify_packages_signature() {
-  local imported_fingerprint=""
-  local status=""
   local expected_hash=""
   local actual_hash=""
 
-  rm -rf "$SPOTIFY_GPG_HOME"
-  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
-  mkdir -m 700 -p "$SPOTIFY_GPG_HOME"
-
-  status="$(
-    export GNUPGHOME="$SPOTIFY_GPG_HOME"
-    gpg --batch --import "$SPOTIFY_GPG_KEY" >/dev/null
-    gpg --batch --with-colons --fingerprint
-  )" || return 1
-
-  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
-  if [ "$imported_fingerprint" != "$SPOTIFY_GPG_FINGERPRINT" ]; then
-    log "Spotify signing key fingerprint mismatch (expected $SPOTIFY_GPG_FINGERPRINT, got $imported_fingerprint)"
-    return 1
-  fi
-
-  status="$(
-    export GNUPGHOME="$SPOTIFY_GPG_HOME"
-    gpg --batch --status-fd 1 --verify "$SPOTIFY_INRELEASE" 2>/dev/null
-  )" || true
-
-  if ! printf '%s\n' "$status" | awk -v fpr="$SPOTIFY_GPG_FINGERPRINT" '
-    $2 == "VALIDSIG" && $NF == fpr { found = 1 }
-    END { exit !found }
-  '; then
+  if ! verify_clearsigned "$SPOTIFY_GPG_KEY" "$SPOTIFY_GPG_FINGERPRINT" "$SPOTIFY_INRELEASE" "$SPOTIFY_RELEASE"; then
     log "Spotify InRelease GPG verification failed"
     return 1
   fi
@@ -76,7 +51,7 @@ verify_spotify_packages_signature() {
       $0 == "SHA256:" { in_sha = 1; next }
       in_sha && /^[A-Z]/ { in_sha = 0 }
       in_sha && $3 == "non-free/binary-amd64/Packages" { print $1; exit }
-    ' "$SPOTIFY_INRELEASE"
+    ' "$SPOTIFY_RELEASE"
   )"
   actual_hash="$(sha256sum "$SPOTIFY_PACKAGES" | awk '{ print $1 }')"
   if [ -z "$expected_hash" ] || [ "$actual_hash" != "$expected_hash" ]; then
@@ -196,7 +171,7 @@ EOF
     sudo install -D -m 644 "$icon" /usr/share/pixmaps/spotify-client.png || return 1
   fi
 
-  rm -rf "$work" "$SPOTIFY_DEB" "$SPOTIFY_PACKAGES" "$SPOTIFY_INRELEASE" "$SPOTIFY_GPG_KEY" "$SPOTIFY_GPG_HOME"
+  rm -rf "$work" "$SPOTIFY_DEB" "$SPOTIFY_PACKAGES" "$SPOTIFY_INRELEASE" "$SPOTIFY_RELEASE" "$SPOTIFY_GPG_KEY"
 }
 
 install_spotify() {

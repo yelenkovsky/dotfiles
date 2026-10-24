@@ -11,8 +11,9 @@ CLAUDE_DESKTOP_GPG_KEY_URL="https://downloads.claude.ai/claude-desktop/key.asc"
 CLAUDE_DESKTOP_GPG_FINGERPRINT="31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE"
 CLAUDE_DESKTOP_PACKAGES="$STATE_DIR/claude-desktop-$TIMESTAMP.Packages"
 CLAUDE_DESKTOP_INRELEASE="$STATE_DIR/claude-desktop-$TIMESTAMP.InRelease"
+# The signed text of InRelease, written by verify_clearsigned.
+CLAUDE_DESKTOP_RELEASE="$STATE_DIR/claude-desktop-$TIMESTAMP.Release"
 CLAUDE_DESKTOP_GPG_KEY="$STATE_DIR/claude-desktop-signing-key-$TIMESTAMP.asc"
-CLAUDE_DESKTOP_GPG_HOME="$STATE_DIR/claude-desktop-gnupg-$TIMESTAMP"
 CLAUDE_DESKTOP_DEB="$STATE_DIR/claude-desktop-$TIMESTAMP.deb"
 register_update_check claude-desktop "$CLAUDE_DESKTOP_DEB"
 register_changelog claude-desktop 'https://claude.com/docs/cowork/claude-desktop-changelog#v{version_dashes}' 'claude-desktop_([0-9.]+)_amd64' 'https://claude.com/docs/cowork/claude-desktop-changelog'
@@ -32,38 +33,10 @@ download_claude_desktop_metadata() {
 }
 
 verify_claude_desktop_packages_signature() {
-  local imported_fingerprint=""
-  local status=""
   local expected_hash=""
   local actual_hash=""
 
-  rm -rf "$CLAUDE_DESKTOP_GPG_HOME"
-  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
-  mkdir -m 700 -p "$CLAUDE_DESKTOP_GPG_HOME"
-
-  status="$(
-    export GNUPGHOME="$CLAUDE_DESKTOP_GPG_HOME"
-    gpg --batch --import "$CLAUDE_DESKTOP_GPG_KEY" >/dev/null
-    gpg --batch --with-colons --fingerprint
-  )" || return 1
-
-  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
-  if [ "$imported_fingerprint" != "$CLAUDE_DESKTOP_GPG_FINGERPRINT" ]; then
-    log "Claude Desktop signing key fingerprint mismatch (expected $CLAUDE_DESKTOP_GPG_FINGERPRINT, got $imported_fingerprint)"
-    return 1
-  fi
-
-  status="$(
-    export GNUPGHOME="$CLAUDE_DESKTOP_GPG_HOME"
-    gpg --batch --status-fd 1 --verify "$CLAUDE_DESKTOP_INRELEASE" 2>/dev/null
-  )" || true
-
-  # InRelease is signed with the signing key. VALIDSIG's first fingerprint is
-  # that key; the primary fingerprint is the last field.
-  if ! printf '%s\n' "$status" | awk -v fpr="$CLAUDE_DESKTOP_GPG_FINGERPRINT" '
-    $2 == "VALIDSIG" && $NF == fpr { found = 1 }
-    END { exit !found }
-  '; then
+  if ! verify_clearsigned "$CLAUDE_DESKTOP_GPG_KEY" "$CLAUDE_DESKTOP_GPG_FINGERPRINT" "$CLAUDE_DESKTOP_INRELEASE" "$CLAUDE_DESKTOP_RELEASE"; then
     log "Claude Desktop InRelease GPG verification failed"
     return 1
   fi
@@ -73,7 +46,7 @@ verify_claude_desktop_packages_signature() {
       $0 == "SHA256:" { in_sha = 1; next }
       in_sha && /^[A-Z]/ { in_sha = 0 }
       in_sha && $3 == "main/binary-amd64/Packages" { print $1; exit }
-    ' "$CLAUDE_DESKTOP_INRELEASE"
+    ' "$CLAUDE_DESKTOP_RELEASE"
   )"
   actual_hash="$(sha256sum "$CLAUDE_DESKTOP_PACKAGES" | awk '{ print $1 }')"
   if [ -z "$expected_hash" ] || [ "$actual_hash" != "$expected_hash" ]; then
@@ -234,7 +207,7 @@ EOF
     update-desktop-database "$(dirname "$CLAUDE_DESKTOP_DESKTOP_FILE")" >/dev/null 2>&1 || true
   fi
 
-  rm -rf "$work" "$CLAUDE_DESKTOP_DEB" "$CLAUDE_DESKTOP_PACKAGES" "$CLAUDE_DESKTOP_INRELEASE" "$CLAUDE_DESKTOP_GPG_KEY" "$CLAUDE_DESKTOP_GPG_HOME"
+  rm -rf "$work" "$CLAUDE_DESKTOP_DEB" "$CLAUDE_DESKTOP_PACKAGES" "$CLAUDE_DESKTOP_INRELEASE" "$CLAUDE_DESKTOP_RELEASE" "$CLAUDE_DESKTOP_GPG_KEY"
 }
 
 install_claude_desktop() {

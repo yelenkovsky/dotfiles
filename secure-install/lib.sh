@@ -688,6 +688,60 @@ replace_install_tree() {
   sudo rm -rf "$old" || log "Could not remove the previous install at $old"
 }
 
+# Check a clearsigned file (an apt InRelease, a dpkg-sig _gpgbuilder) with a
+# pinned key and write only its signed text to OUT. Parse OUT, never the
+# download: gpg --verify still reports VALIDSIG when unsigned lines come before
+# or after the signed block, so a forged "SHA256:" section put in front of
+# InRelease would be the one read. Accepts exactly one good signature by the
+# key whose primary fingerprint is FPR (the last VALIDSIG field; the first is
+# the subkey that signed) and a clean gpg exit: a file that starts with an
+# unsigned OpenPGP message decrypts with no signature at all, and a second
+# message after the first one makes gpg fail.
+#
+# Usage: verify_clearsigned KEYFILE FPR SIGNED OUT
+verify_clearsigned() {
+  local keyfile="$1"
+  local fpr="$2"
+  local signed="$3"
+  local out="$4"
+  local home=""
+  local imported=""
+  local status=""
+  local rc=0
+
+  rm -f "$out"
+  home="$(mktemp -d "$STATE_DIR/gnupg.XXXXXX")" || return 1
+
+  imported="$(
+    export GNUPGHOME="$home"
+    gpg --batch --import "$keyfile" >/dev/null
+    gpg --batch --with-colons --fingerprint
+  )" || rc=$?
+  imported="$(printf '%s\n' "$imported" | awk -F: '/^fpr:/ { print $10; exit }')"
+  if [ "$rc" -ne 0 ] || [ "$imported" != "$fpr" ]; then
+    log "Signing key fingerprint mismatch in $keyfile (expected $fpr, got $imported)"
+    rm -rf "$home"
+    return 1
+  fi
+
+  status="$(
+    export GNUPGHOME="$home"
+    gpg --batch --status-fd 1 --output "$out" --decrypt "$signed" 2>/dev/null
+  )" || rc=$?
+  rm -rf "$home"
+
+  if [ "$rc" -ne 0 ] || ! printf '%s\n' "$status" | awk -v fpr="$fpr" '
+    $2 == "NEWSIG" { sigs++ }
+    $2 == "GOODSIG" { good++ }
+    $2 == "VALIDSIG" && $NF == fpr { valid++ }
+    END { exit !(sigs == 1 && good == 1 && valid == 1) }
+  '; then
+    log "$signed is not signed once, validly, by $fpr (gpg exit $rc)"
+    rm -f "$out"
+    return 1
+  fi
+}
+
 # Identify a release without downloading it: the final URL after redirects
 # (query string dropped, since CDNs sign it per request) and the size in bytes.
 # Tries HEAD first and falls back to a one-byte range GET for servers that
