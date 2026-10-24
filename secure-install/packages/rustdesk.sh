@@ -86,13 +86,9 @@ download_rustdesk_package() {
 }
 
 install_rustdesk_files() {
-  local owner="$USER"
-  local group
   local work="$STATE_DIR/rustdesk-extract-$TIMESTAMP"
   local appdir=""
   local icon=""
-
-  group="$(id -gn "$owner")"
 
   rm -rf "$work"
   mkdir -p "$work"
@@ -117,7 +113,9 @@ install_rustdesk_files() {
 
   # Stage, swap and only then drop the old tree, so a failed copy keeps the
   # working install and a running app never sees a half-copied directory.
-  replace_install_tree "$appdir" "$RUSTDESK_INSTALL_DIR" "$owner:$group" || return 1
+  # Root-owned: rustdesk.service runs this binary as root, so a user-owned
+  # tree would let any user process run code as root.
+  replace_install_tree "$appdir" "$RUSTDESK_INSTALL_DIR" "" || return 1
   sudo chmod 755 "$RUSTDESK_INSTALL_DIR/rustdesk" || return 1
   sudo ln -sfn "$RUSTDESK_INSTALL_DIR/rustdesk" /usr/local/bin/rustdesk || return 1
 

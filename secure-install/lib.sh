@@ -630,7 +630,10 @@ sudo() {
 # copy into dest.new, swap it in with two renames on the same filesystem, and
 # only then delete the old tree. Any failure before the swap leaves the old
 # install untouched. Pass owner as user:group to hand the tree to the user (so
-# later updates need no sudo), or "" to keep it root-owned.
+# later updates need no sudo), or "" to make it root-owned and writable by root
+# only. Use "" for any tree a root service runs or reads: cp -a keeps the uid
+# of the user who extracted it, and a user-owned tree lets any process running
+# as that user change what the service trusts.
 replace_install_tree() {
   local src="$1"
   local dest="$2"
@@ -654,6 +657,10 @@ replace_install_tree() {
       sudo rm -rf "$stage"
       return 1
     fi
+  elif ! sudo chown -R root:root "$stage" || ! sudo chmod -R go-w "$stage"; then
+    log "Could not make $stage root-owned; keeping the current install"
+    sudo rm -rf "$stage"
+    return 1
   fi
 
   # Zip entries stored without Unix permissions extract as 0644, programs
