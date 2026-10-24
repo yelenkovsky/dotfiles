@@ -34,12 +34,15 @@ add_zapzap_hypr_autostart() {
 }
 
 install_zapzap() {
-  local -a flatpak_command=(sudo pacman -S --needed flatpak)
+  # Flatseal edits Flatpak permission overrides (e.g. to narrow ZapZap's
+  # folders). The Arch package is signed by the Arch keys and needs no
+  # GNOME Flatpak runtime.
+  local -a flatpak_command=(sudo pacman -S --needed flatpak flatseal)
 
   [ "$CHECK_MODE" = true ] && return 0
   [ "$ASSUME_YES" = true ] && flatpak_command+=(--noconfirm)
 
-  run_step "install flatpak" "${flatpak_command[@]}"
+  run_step "install flatpak and Flatseal" "${flatpak_command[@]}"
   run_step "add Flathub remote (user)" add_flathub_remote
   run_step "install ZapZap from Flathub" install_zapzap_flatpak
   run_step "add ZapZap to Hyprland autostart" add_zapzap_hypr_autostart
