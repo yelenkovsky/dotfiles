@@ -10,7 +10,8 @@ ZOOM_GPG_KEY_URL="https://zoom.us/linux/download/pubkey"
 ZOOM_GPG_FINGERPRINT="84C365D6CC9A4886CA926BCC4F2197399706AC24"
 ZOOM_DEB="$STATE_DIR/zoom-$TIMESTAMP.deb"
 ZOOM_GPG_KEY="$STATE_DIR/zoom-signing-key-$TIMESTAMP.pub"
-ZOOM_GPG_HOME="$STATE_DIR/zoom-gnupg-$TIMESTAMP"
+# The signed text of the .deb's _gpgbuilder, written by verify_clearsigned.
+ZOOM_GPGBUILDER="$STATE_DIR/zoom-$TIMESTAMP.gpgbuilder"
 ZOOM_INSTALL_DIR="/opt/zoom"
 ZOOM_DEB_URL=""
 # shellcheck disable=SC2034  # passed by name to install_package_group (local -n)
@@ -75,13 +76,11 @@ download_zoom_files() {
   download_url_to_file "$ZOOM_GPG_KEY" "$ZOOM_GPG_KEY_URL"
 }
 
-# dpkg-sig stores a clearsigned member list in _gpgbuilder. Trust it only
-# after the pinned key produces VALIDSIG, then check each member's size,
-# MD5, and SHA-1 from that signed list.
+# dpkg-sig stores a clearsigned member list in _gpgbuilder. Trust only its
+# signed text, once the pinned key has signed it, then check each member's
+# size, MD5, and SHA-1 from that list.
 verify_zoom_signature() {
   local work="$1"
-  local imported_fingerprint=""
-  local status=""
   local md5=""
   local sha1=""
   local size=""
@@ -89,34 +88,12 @@ verify_zoom_signature() {
   local actual_md5=""
   local actual_sha1=""
   local actual_size=""
+  local member=""
   local count=0
   local saw_data=0
+  local -a signed_names=()
 
-  rm -rf "$ZOOM_GPG_HOME"
-  # shellcheck disable=SC2174  # only the GPG home itself needs 0700
-  mkdir -m 700 -p "$ZOOM_GPG_HOME"
-
-  status="$(
-    export GNUPGHOME="$ZOOM_GPG_HOME"
-    gpg --batch --import "$ZOOM_GPG_KEY" >/dev/null
-    gpg --batch --with-colons --fingerprint
-  )" || return 1
-
-  imported_fingerprint="$(printf '%s\n' "$status" | awk -F: '/^fpr:/ { print $10; exit }')"
-  if [ "$imported_fingerprint" != "$ZOOM_GPG_FINGERPRINT" ]; then
-    log "Zoom signing key fingerprint mismatch (expected $ZOOM_GPG_FINGERPRINT, got $imported_fingerprint)"
-    return 1
-  fi
-
-  status="$(
-    export GNUPGHOME="$ZOOM_GPG_HOME"
-    gpg --batch --status-fd 1 --verify "$work/_gpgbuilder" 2>/dev/null
-  )" || true
-
-  if ! printf '%s\n' "$status" | awk -v fpr="$ZOOM_GPG_FINGERPRINT" '
-    $2 == "VALIDSIG" && $NF == fpr { found = 1 }
-    END { exit !found }
-  '; then
+  if ! verify_clearsigned "$ZOOM_GPG_KEY" "$ZOOM_GPG_FINGERPRINT" "$work/_gpgbuilder" "$ZOOM_GPGBUILDER"; then
     log "Zoom .deb GPG verification failed"
     return 1
   fi
@@ -147,17 +124,27 @@ verify_zoom_signature() {
       data.tar.*) saw_data=1 ;;
     esac
     count=$((count + 1))
+    signed_names+=("$name")
   done < <(awk '
-    /^-----BEGIN PGP SIGNATURE-----/ { exit }
     $1 ~ /^[0-9a-f]{32}$/ && $2 ~ /^[0-9a-f]{40}$/ && $3 ~ /^[0-9]+$/ && $4 != "" {
       print $1, $2, $3, $4
     }
-  ' "$work/_gpgbuilder")
+  ' "$ZOOM_GPGBUILDER")
 
   if [ "$count" -lt 3 ] || [ "$saw_data" -ne 1 ]; then
     log "Zoom .deb signature did not cover the archive members"
     return 1
   fi
+
+  # A member the signed list does not name (a second data.tar.*) is unsigned,
+  # and install_zoom_files extracts the first data.tar.* it finds.
+  for member in "$work"/*; do
+    name="${member##*/}"
+    if [ "$name" != _gpgbuilder ] && [[ " ${signed_names[*]} " != *" $name "* ]]; then
+      log "Zoom .deb has a member its signature does not cover: $name"
+      return 1
+    fi
+  done
 
   log "Verified Zoom .deb GPG signature (VALIDSIG $ZOOM_GPG_FINGERPRINT)"
   return 0
@@ -243,7 +230,7 @@ EOF
     sudo update-mime-database /usr/share/mime || true
   fi
 
-  rm -rf "$work" "$ZOOM_DEB" "$ZOOM_GPG_KEY" "$ZOOM_GPG_HOME"
+  rm -rf "$work" "$ZOOM_DEB" "$ZOOM_GPG_KEY" "$ZOOM_GPGBUILDER"
 }
 
 install_zoom() {
@@ -326,7 +313,7 @@ install_zoom() {
   if ! verify_zoom_signature "$work"; then
     FAILURES+=("verify Zoom .deb signature")
     record_status "FAIL" "verify Zoom .deb signature"
-    rm -rf "$work"
+    rm -rf "$work" "$ZOOM_GPGBUILDER"
     return 0
   fi
 
