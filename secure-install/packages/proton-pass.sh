@@ -83,7 +83,7 @@ EOF
   # At login Proton Pass came up before two things it needs:
   # - the tray host: Electron creates its tray icon once, at start, so an icon
   #   made before the bar's StatusNotifierWatcher is ready is lost (at most 30 s);
-  # - the network (and Portmaster/Mullvad) for signing in: wait until Proton's
+  # - the network (and Portmaster) for signing in: wait until Proton's
   #   servers answer (at most 60 s).
   # Either way Proton Pass starts afterwards. ($$ is a literal $ for systemd.)
   local dropin="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/"'app-proton\x2dpass@autostart.service.d'
