@@ -224,6 +224,24 @@ release_ivpn_connection() {
   fi
 }
 
+# IVPN's "launch at login" writes ~/.config/autostart/ivpn-ui.desktop, which
+# starts before Omarchy's tray host (about 75 s after Hyprland at boot).
+# Electron checks for a StatusNotifierWatcher once, when the Tray is created,
+# and never retries, so the icon is lost for the session. Hold the unit systemd
+# generates from that file until the host is up; a drop-in survives IVPN
+# rewriting the .desktop file.
+write_ivpn_autostart_override() {
+  local dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/"'app-ivpn\x2dui@autostart.service.d'
+
+  mkdir -p "$dir"
+  cat >"$dir/tray.conf" <<'EOF'
+[Service]
+TimeoutStartSec=150
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 120); do busctl --user get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher org.kde.StatusNotifierWatcher IsStatusNotifierHostRegistered 2>/dev/null | grep -q "b true" && exit 0; sleep 1; done; exit 0'
+EOF
+  systemctl --user daemon-reload 2>/dev/null || true
+}
+
 install_ivpn_files() {
   local work="$STATE_DIR/ivpn-extract-$TIMESTAMP"
   local root="$work/root"
@@ -298,6 +316,8 @@ EOF
     sudo systemctl enable ivpn-service.service
     sudo systemctl restart ivpn-service.service || log "Failed to restart ivpn-service.service"
   fi
+
+  write_ivpn_autostart_override || return 1
 
   rm -rf "$work" "$IVPN_DEB" "$IVPN_UI_DEB" "$IVPN_PACKAGES" "$IVPN_INRELEASE" "$IVPN_RELEASE" "$IVPN_GPG_KEY" "$IVPN_GPG_HOME"
 }
