@@ -153,7 +153,8 @@ verify_pdfcraft_published_sha256() {
 }
 
 # The OCR models must be inside the AppImage now; refuse a build without them
-# rather than install a PdfCraft whose text recognition cannot work.
+# rather than install a PdfCraft whose text recognition cannot work. Since
+# v0.15.0 they ship as ONNX, not RTEN (upstream's RTEN URLs return 403).
 verify_pdfcraft_bundled_models() {
   local model
 
@@ -165,7 +166,7 @@ verify_pdfcraft_bundled_models() {
     "$PDFCRAFT_DOWNLOAD" --appimage-extract 'usr/share/icons/*' >/dev/null 2>&1 || true
   )
 
-  for model in text-detection.rten text-recognition.rten; do
+  for model in text-detection.onnx text-recognition.onnx; do
     if [ ! -s "$PDFCRAFT_EXTRACT_DIR/squashfs-root/usr/share/pdfcraft/models/$model" ]; then
       log "PdfCraft AppImage does not bundle the OCR model $model"
       return 1
