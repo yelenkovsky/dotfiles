@@ -30,10 +30,6 @@ PACMAN_DESKTOP_PACKAGES=(
   unrar
   vlc
   vlc-plugins-all
-  yazi
-  perl-image-exiftool # exiftool, for Yazi's "Show EXIF"
-  resvg
-  chafa
 )
 
 install_desktop() {
