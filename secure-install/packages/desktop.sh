@@ -13,6 +13,7 @@ PACMAN_DESKTOP_PACKAGES=(
   ark
   discord
   dpkg
+  flea # GUI file manager; published only in the Omarchy package repository
   kde-cli-tools
   kdiff3
   keditbookmarks
