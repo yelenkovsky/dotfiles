@@ -1,6 +1,15 @@
 # shellcheck shell=bash
 register_package gaming 50 "Gaming packages" install_gaming
 
+# Steam launch options for any game:
+#
+#   __NV_PRIME_RENDER_OFFLOAD=1 __VK_LAYER_NV_optimus=NVIDIA_only __GLX_VENDOR_LIBRARY_NAME=nvidia gamemoderun mangohud %command%
+#
+# The three variables are what prime-run sets, so the game runs on the NVIDIA GPU
+# without calling it. MangoJuice only edits MangoHud.conf, so the wrapper is
+# mangohud. Do not save in MangoJuice while a game runs: MangoHud reloads the
+# file live, and Space Marine 2 crashed inside that reload on 2026-11-07.
+
 # proton-cachyos-slr on the AUR is the baseline x86_64 Steam Linux Runtime build.
 # The x86-64-v3 build is a separate GitHub release asset. Steam discovers it
 # only from compatibilitytools.d, which is why it does not go under /opt.
