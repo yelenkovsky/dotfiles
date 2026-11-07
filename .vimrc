@@ -9,6 +9,11 @@ set clipboard^=unnamed,unnamedplus
 set hlsearch
 set incsearch
 
+" maP
+nnoremap - ddp
+nnoremap _ j
+inoremap <c-u> <esc>viwU<esc>i
+nnoremap <c-u> viwU<esc>
 " vim.highlightedyank.enable + duration 200
 if has('nvim')
   augroup HighlightYank
