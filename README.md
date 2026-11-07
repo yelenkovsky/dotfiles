@@ -55,7 +55,7 @@ chmod +x install.sh secure-install.sh setup/*.sh
 | `.config/gh/config.yml` | GitHub CLI settings. Account credentials stay in a local `hosts.yml` |
 | `.claude/skills/add-secure-install-app` | Claude Code skill for adding apps to `secure-install/packages/`, linked at `~/.claude/skills/add-secure-install-app` |
 
-The Yazi config (`.config/yazi`) and Omarchy theme hooks (`.config/omarchy`) stay in the clone. Link those paths yourself when you want them in `$HOME`.
+The Omarchy theme hooks (`.config/omarchy`) stay in the clone. Link that path yourself when you want it in `$HOME`.
 
 ## Extra setup
 

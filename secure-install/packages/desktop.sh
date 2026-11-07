@@ -13,6 +13,7 @@ PACMAN_DESKTOP_PACKAGES=(
   ark
   discord
   dpkg
+  flea # GUI file manager; published only in the Omarchy package repository
   kde-cli-tools
   kdiff3
   keditbookmarks
@@ -29,10 +30,6 @@ PACMAN_DESKTOP_PACKAGES=(
   unrar
   vlc
   vlc-plugins-all
-  yazi
-  perl-image-exiftool # exiftool, for Yazi's "Show EXIF"
-  resvg
-  chafa
 )
 
 install_desktop() {
