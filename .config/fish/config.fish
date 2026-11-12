@@ -52,6 +52,10 @@ if status is-interactive
     
     # open
     alias sf="source ~/.config/fish/config.fish"
+
+    # omarchy (abbr expands in place, so the full command shows in history)
+    abbr -a ou 'omarchy update'
+    abbr -a op 'omarchy-plugin-guard update --yes --force'
 end
 
 # The next line updates PATH for the Google Cloud SDK.
