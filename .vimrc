@@ -9,14 +9,6 @@ set clipboard^=unnamed,unnamedplus
 set hlsearch
 set incsearch
 
-" maP
-"let maplocalleader = "-"    " comma as <localleader>
-"let mapleader = ","         " Space as <leader>
-
-"nnoremap <leader>- ddp
-"nnoremap <leader>_ j
-"inoremap <c-u> <esc>viwU<esc>i
-"nnoremap <c-u> viwU<esc>
 " vim.highlightedyank.enable + duration 200
 if has('nvim')
   augroup HighlightYank
