@@ -9,6 +9,15 @@ register_package gaming 50 "Gaming packages" install_gaming
 # without calling it. MangoJuice only edits MangoHud.conf, so the wrapper is
 # mangohud. Do not save in MangoJuice while a game runs: MangoHud reloads the
 # file live, and Space Marine 2 crashed inside that reload on 2026-11-07.
+#
+# Space Marine 2 (app 2183900) uses these instead:
+#
+#   PROTON_USE_NTSYNC=1 PROTON_ENABLE_WAYLAND=1 __NV_PRIME_RENDER_OFFLOAD=1 __VK_LAYER_NV_optimus=NVIDIA_only __GLX_VENDOR_LIBRARY_NAME=nvidia gamemoderun mangohud %command%
+#
+# Since patch 14 the game crashes with a null-pointer read in its own exe
+# during scene loads (elevators, the battle barge), mostly on Linux kernel 7.2+.
+# PROTON_USE_NTSYNC=1 stopped it here (2026-11-12). Keep exactly one %command%:
+# anything after it is passed to the game as arguments, not run.
 
 # proton-cachyos-slr on the AUR is the baseline x86_64 Steam Linux Runtime build.
 # The x86-64-v3 build is a separate GitHub release asset. Steam discovers it
