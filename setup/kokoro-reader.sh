@@ -4,11 +4,14 @@
 #   ~/.local/share/kokoro-reader/   daemon.py + client.py (symlinks) and a Python 3.12 venv
 #   ~/.local/bin/read-aloud         command for the hotkey (symlink)
 #
-# The Hyprland keybinding is machine-specific and lives in dotfiles-private:
-#   o.bind("SUPER + ALT + R", "Read selection aloud", "<home>/.local/bin/read-aloud toggle")
+# Keybindings are machine-specific and live in dotfiles-private; bind
+# `read-aloud toggle|pause|prev|next|slower|faster|voice` (see read-aloud).
+# While reading, the daemon is also an MPRIS player, so media keys and the
+# Omarchy Media bar widget (omarchy bar put omarchy.media) control it.
 #
-# Needs uv, mpv and wl-clipboard. The CUDA build of torch is a ~5 GB download;
-# --cpu installs the small CPU-only build (Kokoro still reads faster than real time).
+# Needs uv, portaudio and wl-clipboard. The CUDA build of torch is a ~5 GB
+# download; --cpu installs the small CPU-only build (Kokoro still reads faster
+# than real time).
 #
 # Usage: setup/kokoro-reader.sh [--cpu] [--remove]
 
@@ -27,9 +30,11 @@ if [ "${1-}" = "--remove" ]; then
   exit 0
 fi
 
-for cmd in uv mpv wl-paste notify-send; do
+for cmd in uv wl-paste notify-send; do
   command -v "$cmd" >/dev/null || { echo "Missing $cmd" >&2; exit 1; }
 done
+# Not `grep -q`: it exits at the first match, and under pipefail ldconfig's SIGPIPE fails the test.
+ldconfig -p | grep libportaudio >/dev/null || { echo "Missing portaudio (pacman -S portaudio)" >&2; exit 1; }
 
 mkdir -p "$APP_DIR" "$(dirname "$BIN")"
 ln -sfn "$SRC/daemon.py" "$APP_DIR/daemon.py"

@@ -62,7 +62,7 @@ The Omarchy theme hooks (`.config/omarchy`) stay in the clone. Link that path yo
 Run these by hand when you need them.
 
 - `setup/update-check-timer.sh` — the daily update-check timer (`install.sh` runs it; `--remove` turns it off)
-- `setup/kokoro-reader.sh` — `read-aloud`: select text, press a hotkey, and [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) reads it aloud offline (`kokoro-reader/`). Bind `read-aloud toggle` to a key; press it again to stop. In apps that never set the primary selection (PdfCraft, many Electron apps), press Ctrl+C before the key: it reads whichever of the clipboard and the selection changed last. `--cpu` skips the ~5 GB CUDA download, `--remove` uninstalls
+- `setup/kokoro-reader.sh` — `read-aloud`: select text, press a hotkey, and [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) reads it aloud offline (`kokoro-reader/`). Bind `read-aloud toggle` to a key; press it again to stop. In apps that never set the primary selection (PdfCraft, many Electron apps), press Ctrl+C before the key: it reads whichever of the clipboard and the selection changed last. `read-aloud pause|prev|next|slower|faster|voice` step through sentences and set speed and voice (saved in `~/.config/kokoro-reader/settings.json`); while reading it is an MPRIS player, so media keys and the Omarchy Media widget work too `--cpu` skips the ~5 GB CUDA download, `--remove` uninstalls
 - `setup/setup-wireshark.sh` — capture group permissions. Install Wireshark separately
 - `setup/usb.sh` — format a removable drive as one FAT32 partition and mount it at `/mnt/usb`
 - `setup/usb-remount.sh` — remount that drive with user write permissions
