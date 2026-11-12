@@ -1,0 +1,11 @@
+# Pinned to the versions tested together. torch's default Linux wheel is the
+# CUDA build (several GB of nvidia-* wheels); setup/kokoro-reader.sh --cpu
+# installs the CPU-only wheel instead.
+kokoro==0.9.4
+misaki==0.9.4
+torch==2.15.0
+soundfile==0.14.0
+spacy==3.8.18
+# misaki's English G2P needs this spaCy model. Its own auto-download calls pip,
+# which a uv venv does not have, so install the wheel up front.
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

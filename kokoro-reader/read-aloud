@@ -1,0 +1,8 @@
+#!/bin/sh
+# Read the selected text aloud with Kokoro TTS; run again to stop.
+#   read-aloud            read the selection, or stop if already reading
+#   read-aloud stop       stop reading
+#   read-aloud read -     read text from stdin
+# Installed by setup/kokoro-reader.sh; code and venv in ~/.local/share/kokoro-reader.
+APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/kokoro-reader"
+exec "$APP_DIR/.venv/bin/python" -I "$APP_DIR/client.py" "$@"

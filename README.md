@@ -62,6 +62,7 @@ The Omarchy theme hooks (`.config/omarchy`) stay in the clone. Link that path yo
 Run these by hand when you need them.
 
 - `setup/update-check-timer.sh` — the daily update-check timer (`install.sh` runs it; `--remove` turns it off)
+- `setup/kokoro-reader.sh` — `read-aloud`: select text, press a hotkey, and [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) reads it aloud offline (`kokoro-reader/`). Bind `read-aloud toggle` to a key; press it again to stop. `--cpu` skips the ~5 GB CUDA download, `--remove` uninstalls
 - `setup/setup-wireshark.sh` — capture group permissions. Install Wireshark separately
 - `setup/usb.sh` — format a removable drive as one FAT32 partition and mount it at `/mnt/usb`
 - `setup/usb-remount.sh` — remount that drive with user write permissions
