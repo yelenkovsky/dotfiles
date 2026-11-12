@@ -1,5 +1,6 @@
 """Client for the Kokoro read-aloud daemon. See ~/.local/bin/read-aloud."""
 
+import hashlib
 import os
 import socket
 import subprocess
@@ -44,12 +45,41 @@ def start_daemon() -> bool:
     return False
 
 
+LAST_PATH = os.path.join(RUNTIME_DIR, "kokoro-reader.last")
+
+
+def paste(*args: str) -> str:
+    return subprocess.run(["wl-paste", "--no-newline", *args], capture_output=True, text=True, check=False).stdout
+
+
+def digest(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
 def selected_text() -> str:
-    for args in (["wl-paste", "--primary", "--no-newline"], ["wl-paste", "--no-newline"]):
-        out = subprocess.run(args, capture_output=True, text=True, check=False).stdout
-        if out.strip():
-            return out
-    return ""
+    """Pick whichever of the clipboard and the primary selection changed last.
+
+    Some apps (PdfCraft, many Electron apps) never set the primary selection,
+    so a highlight there leaves stale text from another window; Ctrl+C in those
+    apps updates the clipboard instead. Apps that do set it (browsers, GTK/Qt)
+    work with a highlight alone. The digests of what was there at the previous
+    read show which one is new; when both or neither changed, the clipboard
+    wins, because copying is the deliberate act.
+    """
+    clipboard, primary = paste(), paste("--primary")
+    try:
+        with open(LAST_PATH) as f:
+            last_clipboard, last_primary = f.read().split()
+    except (OSError, ValueError):
+        last_clipboard = last_primary = ""
+    with open(LAST_PATH, "w") as f:
+        f.write(f"{digest(clipboard)} {digest(primary)}")
+
+    clipboard_new = digest(clipboard) != last_clipboard
+    primary_new = digest(primary) != last_primary
+    if primary.strip() and primary_new and not clipboard_new:
+        return primary
+    return clipboard if clipboard.strip() else primary
 
 
 def main():
@@ -75,6 +105,12 @@ def main():
     if send("STATUS") is None and not start_daemon():
         sys.exit(1)
     send("SPEAK\n" + text)
+
+    # Show what is being read, so a selection that an app only half-published
+    # (a few letters instead of a paragraph) is obvious rather than silent.
+    words = len(text.split())
+    preview = " ".join(text.split())[:80]
+    notify(f"{words} words: “{preview}{'…' if len(preview) == 80 else ''}”")
 
 
 if __name__ == "__main__":
