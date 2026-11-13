@@ -15,6 +15,9 @@ LAST_PATH = os.path.join(RUNTIME_DIR, "kokoro-reader.last")
 LOG_PATH = os.path.expanduser("~/.local/state/kokoro-reader.log")
 CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kokoro-reader")
 SETTINGS_PATH = os.path.join(CONFIG_DIR, "settings.json")
+PRONUNCIATIONS_PATH = os.path.join(CONFIG_DIR, "pronunciations.tsv")
+SAVED_PATH = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+                          "kokoro-reader", "saved-sentences.md")
 DEFAULTS = {"voice": "af_heart", "speed": 1.0, "shadow": False, "panel": True}
 SPEED_STEP = 0.1
 MIN_SPEED, MAX_SPEED = 0.5, 2.0
@@ -44,12 +47,15 @@ KEYS = [
     ("Super+Alt+W", "Back a sentence (in the shadowing pause: replay)", "prev"),
     ("Super+Alt+T", "Skip a sentence", "next"),
     ("Super+Alt+Shift+W", "Back to the first sentence", "restart"),
+    ("Super+Alt+Shift+R", "Add the selection to the end of what is being read", "queue"),
+    ("Super+Alt+B", "Save the sentence being read (for flashcards)", "save"),
     ("Super+Alt+Z", "Slower", "slower"),
     ("Super+Alt+X", "Faster", "faster"),
     ("Super+Alt+V", "Choose a voice", "voice"),
     ("Super+Alt+A", "Read-along panel on/off", "panel"),
     ("Super+Alt+D", "Shadowing on/off (pause to repeat each sentence)", "shadow"),
     ("Super+Alt+H", "This list", "keys"),
+    ("Saved sentences", "Open the list saved with Super+Alt+B", "saved"),
     ("Media keys", "Play/pause, previous/next sentence", None),
 ]
 
@@ -58,6 +64,11 @@ USAGE = """usage: read-aloud [command]
   read [-]      read the selection (or stdin with -), replacing anything playing
   stop | pause | next | prev
   restart       back to the first sentence (a text read before resumes where it stopped)
+  queue         add the selection to the end of what is being read
+  save          save the sentence being read to saved-sentences.md; saved: open it
+  pronounce [word respelling]
+                fix how a word is said (e.g. pronounce Seligman SELL-ig-man);
+                without arguments, list the fixes
   faster | slower | speed <0.5-2.0>
   voice [id]    pick a voice from a menu, or set one (e.g. bf_emma)
   shadow        shadowing on/off: a pause after each sentence to repeat it aloud
@@ -178,21 +189,79 @@ def selected_text() -> tuple[str, bool]:
 
 # --- commands ---------------------------------------------------------------
 
-def read(text: str):
+def source_window() -> str:
+    """Title of the focused window (the book, usually), stored with saved sentences."""
+    try:
+        out = subprocess.run(["hyprctl", "activewindow", "-j"], capture_output=True, text=True,
+                             check=False, timeout=2).stdout
+        return " ".join(str(json.loads(out).get("title", "")).split())[:120]
+    except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
+        return ""
+
+
+def read(text: str, queue: bool = False):
     if not text.strip():
         notify("Select or copy some text first.")
         return
+    source = source_window()
     if send("STATUS") is None and not start_daemon():
         sys.exit(1)
-    status = send("SPEAK\n" + text) or {}
+    status = send(f"{'APPEND' if queue else 'SPEAK'} {source}\n{text}") or {}
     # Show what is being read, so a selection that an app only half-published
     # (a few letters instead of a paragraph) is obvious rather than silent.
     words = len(text.split())
     preview = " ".join(text.split())[:80]
     message = f"{words} words: “{preview}{'…' if len(preview) == 80 else ''}”"
-    if status.get("resumed"):
+    if status.get("queuedAt", 0) > 0:
+        message = f"Queued from sentence {status['queuedAt'] + 1} of {status['count']}. " + message
+    elif status.get("resumed"):
         message += f"\nResuming at sentence {status['resumed'] + 1} of {status['count']} (read-aloud restart: from the top)"
     notify(message)
+
+
+def save_sentence():
+    status = send("SAVE")
+    if not status or not status.get("saved"):
+        notify("Nothing is being read, so there is no sentence to save.")
+        return
+    preview = status["saved"][:60]
+    osd("󰆓", f"Saved: {preview}{'…' if len(status['saved']) > 60 else ''}")
+
+
+def open_saved():
+    if not os.path.exists(SAVED_PATH):
+        notify("No sentences saved yet: press Super+Alt+B while listening.")
+        return
+    subprocess.Popen(["omarchy-launch-editor", SAVED_PATH], start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def pronounce(args: list[str]):
+    """Add or replace word<TAB>respelling in pronunciations.tsv, then say the word."""
+    if not args:
+        print(f"{PRONUNCIATIONS_PATH}:")
+        try:
+            with open(PRONUNCIATIONS_PATH, encoding="utf-8") as f:
+                print(f.read().rstrip() or "(empty)")
+        except OSError:
+            print("(none yet)")
+        return
+    if len(args) < 2:
+        sys.exit("usage: read-aloud pronounce <word> <respelling or /phonemes/>")
+    word, say = args[0].strip(), " ".join(args[1:]).strip()
+    try:
+        with open(PRONUNCIATIONS_PATH, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        lines = ["# word<TAB>respelling (e.g. SELL-ig-man) or Kokoro phonemes between slashes",
+                 "# Added with: read-aloud pronounce <word> <respelling>"]
+    lines = [line for line in lines if line.split("\t")[0].lower() != word.lower()]
+    lines.append(f"{word}\t{say}")
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    with open(PRONUNCIATIONS_PATH, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"{word} → {say}")
+    read(f"{word}")
 
 
 def toggle():
@@ -290,6 +359,14 @@ def run(action: str, rest: list[str]):
         read(sys.stdin.read() if args[1:2] == ["-"] else selected_text()[0])
     elif action == "keys":
         show_keys()
+    elif action == "queue":
+        read(selected_text()[0], queue=True)
+    elif action == "save":
+        save_sentence()
+    elif action == "saved":
+        open_saved()
+    elif action == "pronounce":
+        pronounce(rest)
     elif action == "restart":
         send("RESTART")
     elif action == "shadow":

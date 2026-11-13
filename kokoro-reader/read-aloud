@@ -6,6 +6,9 @@
 #   read-aloud faster|slower|speed 1.2
 #   read-aloud voice [bf_emma]  menu, or set directly
 #   read-aloud shadow|panel     toggle shadowing / the read-along panel
+#   read-aloud queue             add the selection after what is being read
+#   read-aloud save|saved        save the current sentence / open the saved list
+#   read-aloud pronounce [word respelling]
 #   read-aloud keys              menu of the shortcuts
 #   read-aloud status
 # Installed by setup/kokoro-reader.sh; code and venv in ~/.local/share/kokoro-reader.
