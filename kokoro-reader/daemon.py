@@ -132,7 +132,9 @@ class Reader:
         self.settings = load_settings()
         self._kpipeline = KPipeline
         self.pipelines = {}
+        self.pipeline_lock = threading.Lock()
         self.pipeline_for(self.settings["voice"])  # load the model now, not on first read
+        threading.Thread(target=self._preload_voices, daemon=True).start()
 
         self.cond = threading.Condition()
         self.sentences: list[tuple[str, bool]] = []
@@ -152,14 +154,34 @@ class Reader:
 
     def pipeline_for(self, voice: str):
         lang = voice[0]                 # a = American, b = British
-        if lang not in self.pipelines:
-            model = next(iter(self.pipelines.values())).model if self.pipelines else True
-            pipeline = self._kpipeline(lang_code=lang, model=model, device=self.device,
-                                       repo_id="hexgrad/Kokoro-82M")
-            self.pipelines[lang] = pipeline
-        pipeline = self.pipelines[lang]
-        pipeline.load_voice(voice)      # raises if the voice does not exist
+        with self.pipeline_lock:
+            if lang not in self.pipelines:
+                model = next(iter(self.pipelines.values())).model if self.pipelines else True
+                pipeline = self._kpipeline(lang_code=lang, model=model, device=self.device,
+                                           repo_id="hexgrad/Kokoro-82M")
+                self.pipelines[lang] = pipeline
+            pipeline = self.pipelines[lang]
+            pipeline.load_voice(voice)  # raises if the voice does not exist
         return pipeline
+
+    def _preload_voices(self):
+        """Load every downloaded English voice (and the British G2P) in the background.
+
+        A voice's first use otherwise costs ~4 s: a Hugging Face round trip for
+        its file, plus building the British pipeline for the first bf_/bm_ voice.
+        setup/kokoro-reader.sh downloads the voices the menu offers.
+        """
+        import glob
+        from huggingface_hub.constants import HF_HUB_CACHE
+
+        pattern = os.path.join(HF_HUB_CACHE, "models--hexgrad--Kokoro-82M", "snapshots", "*", "voices", "*.pt")
+        voices = sorted({os.path.basename(p)[:-3] for p in glob.glob(pattern)})
+        for voice in voices:
+            if voice[:2] in ("af", "am", "bf", "bm"):
+                try:
+                    self.pipeline_for(voice)
+                except Exception as error:
+                    print(f"preloading {voice} failed: {error}", flush=True)
 
     def key(self) -> tuple:
         return (self.settings["voice"], self.settings["speed"])

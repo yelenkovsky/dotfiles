@@ -50,7 +50,20 @@ if [ "${1-}" = "--cpu" ]; then
 fi
 VIRTUAL_ENV="$APP_DIR/.venv" uv pip install "${extra[@]}" -r "$SRC/requirements.txt"
 
+# Download the model and every voice the menu offers now, so the first read
+# and each voice's first use do not wait on Hugging Face (~4 s per voice).
+"$APP_DIR/.venv/bin/python" -I - "$SRC/client.py" <<'EOF'
+import runpy, sys
+from huggingface_hub import hf_hub_download
+repo = "hexgrad/Kokoro-82M"
+files = ["config.json", "kokoro-v1_0.pth"]
+files += [f"voices/{vid}.pt" for vid, *_ in runpy.run_path(sys.argv[1])["VOICES"]]
+for name in files:
+    hf_hub_download(repo, name)
+print(f"Model and {len(files) - 2} voices cached")
+EOF
+
 # Stop a running daemon so the next key press loads the new code.
 pkill -f '[k]okoro-reader/daemon\.py' || true
 
-echo "Installed. Select text and run: read-aloud   (the first run downloads the ~330 MB model)"
+echo "Installed. Select text and run: read-aloud"
