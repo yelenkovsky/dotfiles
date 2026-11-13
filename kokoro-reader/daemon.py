@@ -6,19 +6,32 @@ without use so it does not hold VRAM all day.
 
 Control comes two ways:
   * a Unix socket for read-aloud (one request per connection, UTF-8):
-      SPEAK\\n<text>   read <text>, replacing anything being read
-      STOP | PAUSE (toggle) | NEXT | PREV
+      SPEAK\\n<text>   read <text>, replacing anything being read; a text read
+                       before resumes at the sentence where it stopped
+      STOP | PAUSE (toggle) | NEXT | PREV | RESTART (back to sentence 1)
       SPEED <x> | SPEED +<d> | SPEED -<d>     set or step the speed
       VOICE <id>                               e.g. af_heart, bf_emma
+      SHADOW | PANEL                           toggle shadowing / the read-along panel
       STATUS                                   JSON state
   * MPRIS (org.mpris.MediaPlayer2.kokoro_reader) while a text is loaded, so
     media keys, headphone buttons and the Omarchy Media bar widget work.
     Next/Previous move by sentence; Rate is the speed.
 
-Settings (voice, speed) persist in ~/.config/kokoro-reader/settings.json.
+A second socket, kokoro-reader-events.sock, streams one JSON line per change
+(the sentence, each word's start and end in seconds, the position) to the
+read-along panel (omarchy-plugin/), which runs its own clock between lines.
+
+Shadowing: after each sentence the reader is silent for about as long as the
+sentence took, so the listener can repeat it aloud.
+
+Settings (voice, speed, shadow, panel) persist in
+~/.config/kokoro-reader/settings.json; where each text stopped, as a hash of
+the text and a sentence number (never the text), in
+~/.local/state/kokoro-reader/positions.json.
 """
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -41,12 +54,18 @@ SENTENCE_GAP = 0.12                # seconds of silence between sentences
 PARAGRAPH_GAP = 0.45               # ... and after the last sentence of a paragraph
 RESTART_THRESHOLD = 2.0            # Previous within this many seconds goes back a sentence
 MIN_SPEED, MAX_SPEED = 0.5, 2.0
-DEFAULTS = {"voice": "af_heart", "speed": 1.0}
+SHADOW_FACTOR = 1.0                # repeat gap = sentence length × this ...
+SHADOW_EXTRA = 1.0                 # ... + this many seconds
+MAX_POSITIONS = 200                # texts whose stopping point is remembered
+DEFAULTS = {"voice": "af_heart", "speed": 1.0, "shadow": False, "panel": True}
 
 RUNTIME_DIR = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
 SOCKET_PATH = os.path.join(RUNTIME_DIR, "kokoro-reader.sock")
+EVENTS_PATH = os.path.join(RUNTIME_DIR, "kokoro-reader-events.sock")
 CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kokoro-reader")
 SETTINGS_PATH = os.path.join(CONFIG_DIR, "settings.json")
+STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "kokoro-reader")
+POSITIONS_PATH = os.path.join(STATE_DIR, "positions.json")
 
 MPRIS_NAME = "org.mpris.MediaPlayer2.kokoro_reader"
 MPRIS_PATH = "/org/mpris/MediaPlayer2"
@@ -62,12 +81,58 @@ def load_settings() -> dict:
         return dict(DEFAULTS)
 
 
-def save_settings(settings: dict):
-    os.makedirs(CONFIG_DIR, exist_ok=True)
-    tmp = SETTINGS_PATH + ".tmp"
+def write_json(path: str, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
     with open(tmp, "w") as f:
-        json.dump(settings, f, indent=2)
-    os.replace(tmp, SETTINGS_PATH)
+        json.dump(data, f, indent=2)
+    os.replace(tmp, path)
+
+
+def save_settings(settings: dict):
+    write_json(SETTINGS_PATH, settings)
+
+
+class Positions:
+    """Where each text stopped: {text hash: {"index", "count", "time"}}."""
+
+    def __init__(self):
+        try:
+            with open(POSITIONS_PATH) as f:
+                self.data = json.load(f)
+        except (OSError, ValueError):
+            self.data = {}
+
+    @staticmethod
+    def key(sentences: list) -> str:
+        return hashlib.sha256("\n".join(s for s, _ in sentences).encode()).hexdigest()
+
+    def get(self, key: str, count: int) -> int:
+        entry = self.data.get(key)
+        if entry and entry.get("count") == count and 0 < entry.get("index", 0) < count:
+            return entry["index"]
+        return 0
+
+    def set(self, key: str, index: int, count: int):
+        if index <= 0:
+            self.forget(key)
+            return
+        self.data[key] = {"index": index, "count": count, "time": int(time.time())}
+        if len(self.data) > MAX_POSITIONS:
+            oldest = sorted(self.data, key=lambda k: self.data[k]["time"])
+            for k in oldest[:len(self.data) - MAX_POSITIONS]:
+                del self.data[k]
+        self._save()
+
+    def forget(self, key: str):
+        if self.data.pop(key, None) is not None:
+            self._save()
+
+    def _save(self):
+        try:
+            write_json(POSITIONS_PATH, self.data)
+        except OSError as error:
+            print(f"saving positions failed: {error}", flush=True)
 
 
 def clamp_speed(value: float) -> float:
@@ -114,6 +179,43 @@ def split_sentences(text: str) -> list[tuple[str, bool]]:
     return out
 
 
+def word_times(sentence: str, tokens: list[tuple[str, float, float]]) -> list[list]:
+    """[[word, start, end], ...] for the sentence's whitespace-separated words.
+
+    Kokoro's tokens keep the original spelling ("Dr.", "3:15", "isn't") with
+    times in seconds of the generated audio, so each is found in the sentence
+    in order and its time given to the word it falls in. Punctuation tokens
+    merge into their word; a word with no token (a dash) gets a zero-length
+    slot at the previous word's end, so the highlight does not jump.
+    """
+    spans = [(m.start(), m.end(), m.group()) for m in re.finditer(r"\S+", sentence)]
+    times: list[list] = [[None, None] for _ in spans]
+    cursor = w = 0
+    for text, start, end in tokens:
+        text = text.strip()
+        if not text or start is None or end is None:
+            continue
+        at = sentence.find(text, cursor)
+        # Accept only a nearby match: a token Kokoro respelled must not pull
+        # the cursor onto a later word that happens to contain it.
+        if at < 0 or (at - cursor > 3 and re.search(r"\w", sentence[cursor:at])):
+            continue
+        cursor = at + len(text)
+        while w < len(spans) - 1 and spans[w][1] <= at:
+            w += 1
+        slot = times[w]
+        slot[0] = start if slot[0] is None else min(slot[0], start)
+        slot[1] = end if slot[1] is None else max(slot[1], end)
+    last = 0.0
+    out = []
+    for (_, _, word), (start, end) in zip(spans, times):
+        if start is None:
+            start = end = last
+        last = end
+        out.append([word, round(start, 3), round(end, 3)])
+    return out
+
+
 # --- reader -----------------------------------------------------------------
 
 class Reader:
@@ -140,13 +242,18 @@ class Reader:
         self.sentences: list[tuple[str, bool]] = []
         self.index = 0
         self.pos = 0
-        self.cache: dict[int, tuple[tuple, np.ndarray]] = {}
+        # index -> ((voice, speed), audio, words); words as from word_times()
+        self.cache: dict[int, tuple[tuple, np.ndarray, list]] = {}
         self.state = "stopped"          # stopped | playing | paused
         self.finished = False
-        self.version = 0                # bumped on every change MPRIS should see
+        self.repeat_left = 0            # samples of shadowing silence still to play
+        self.repeat_total = 0
+        self.version = 0                # bumped on every change MPRIS or the panel should see
         self.last_used = time.monotonic()
         self.stream = None
-        self.on_change = lambda: None   # set by the MPRIS side
+        self.positions = Positions()
+        self.text_key = ""              # Positions key of the loaded text
+        self.listeners = []             # called by the worker after each change
 
         threading.Thread(target=self._worker, daemon=True).start()
 
@@ -186,13 +293,21 @@ class Reader:
     def key(self) -> tuple:
         return (self.settings["voice"], self.settings["speed"])
 
-    def _generate(self, sentence: str, ends_paragraph: bool, key: tuple) -> np.ndarray:
+    def _generate(self, sentence: str, ends_paragraph: bool, key: tuple) -> tuple[np.ndarray, list]:
         voice, speed = key
-        chunks = [r.audio.numpy() for r in self.pipeline_for(voice)(sentence, voice=voice, speed=speed,
-                                                                      split_pattern=None)
-                  if r.audio is not None]
+        chunks, tokens = [], []
+        offset = 0.0                    # a very long sentence comes back in several chunks
+        for r in self.pipeline_for(voice)(sentence, voice=voice, speed=speed, split_pattern=None):
+            if r.audio is None:
+                continue
+            audio = r.audio.numpy()
+            for t in r.tokens or []:
+                if t.start_ts is not None and t.end_ts is not None:
+                    tokens.append((t.text, offset + t.start_ts, offset + t.end_ts))
+            chunks.append(audio)
+            offset += len(audio) / SAMPLE_RATE
         gap = np.zeros(int(SAMPLE_RATE * (PARAGRAPH_GAP if ends_paragraph else SENTENCE_GAP)), np.float32)
-        return np.concatenate([*chunks, gap]).astype(np.float32)
+        return np.concatenate([*chunks, gap]).astype(np.float32), word_times(sentence, tokens)
 
     # audio
 
@@ -205,6 +320,15 @@ class Reader:
             filled = 0
             moved = False
             while filled < frames:
+                if self.repeat_left:
+                    # Shadowing: silence while the listener repeats the sentence.
+                    n = min(frames - filled, self.repeat_left)
+                    filled += n
+                    self.repeat_left -= n
+                    if not self.repeat_left:
+                        self._advance()
+                        moved = True
+                    continue
                 if self.index >= len(self.sentences):
                     self.finished = True
                     self.cond.notify_all()
@@ -218,13 +342,22 @@ class Reader:
                 filled += n
                 self.pos += n
                 if self.pos >= len(audio):
-                    self.cache.pop(self.index - 1, None)
-                    self.index += 1
-                    self.pos = 0
+                    if self.settings["shadow"]:
+                        self.repeat_total = self.repeat_left = int(
+                            len(audio) * SHADOW_FACTOR + SHADOW_EXTRA * SAMPLE_RATE)
+                    else:
+                        self._advance()
                     moved = True
             if moved:
                 self.version += 1
                 self.cond.notify_all()
+
+    def _advance(self):
+        """Move to the next sentence; caller holds self.cond."""
+        self.cache.pop(self.index - 1, None)
+        self.index += 1
+        self.pos = 0
+        self.repeat_left = self.repeat_total = 0
 
     def _open_stream(self):
         if self.stream is None:
@@ -241,26 +374,32 @@ class Reader:
 
     # commands (called from the socket thread and the MPRIS loop)
 
-    def speak(self, text: str):
+    def speak(self, text: str) -> int:
+        """Read text, resuming where it stopped last time; returns that sentence index."""
         sentences = split_sentences(text)
         if not sentences:
-            return
+            return 0
         self._close_stream()
         with self.cond:
             self.sentences = sentences
-            self.index = self.pos = 0
+            self.text_key = Positions.key(sentences)
+            self.index = self.positions.get(self.text_key, len(sentences))
+            self.pos = self.repeat_left = self.repeat_total = 0
             self.cache.clear()
             self.finished = False
             self.state = "playing"
             self._touch()
+            start = self.index
         self._open_stream()
+        return start
 
     def stop(self):
         self._close_stream()
         with self.cond:
             self.sentences = []
+            self.text_key = ""
             self.cache.clear()
-            self.index = self.pos = 0
+            self.index = self.pos = self.repeat_left = self.repeat_total = 0
             self.finished = False
             self.state = "stopped"
             self._touch()
@@ -297,10 +436,10 @@ class Reader:
                 end = True
             else:
                 end = False
-                self.index += 1
-                self.pos = 0
+                self._advance()
                 self._touch()
         if end:
+            self.positions.forget(self.text_key)
             self.stop()
 
     def previous(self):
@@ -308,10 +447,28 @@ class Reader:
             if self.state == "stopped":
                 return
             speed = self.settings["speed"]
-            if self.pos < RESTART_THRESHOLD * SAMPLE_RATE / speed and self.index > 0:
+            # During the shadowing gap, Previous replays the sentence just heard.
+            if (not self.repeat_left and self.pos < RESTART_THRESHOLD * SAMPLE_RATE / speed
+                    and self.index > 0):
                 self.index -= 1
-            self.pos = 0
+            self.pos = self.repeat_left = self.repeat_total = 0
             self._touch()
+
+    def restart(self):
+        with self.cond:
+            if self.state == "stopped":
+                return
+            self.index = self.pos = self.repeat_left = self.repeat_total = 0
+            self._touch()
+
+    def toggle_setting(self, name: str) -> bool:
+        with self.cond:
+            self.settings[name] = not self.settings[name]
+            if name == "shadow" and not self.settings[name] and self.repeat_left:
+                self._advance()         # turning it off mid-gap moves straight on
+            save_settings(self.settings)
+            self._touch()
+            return self.settings[name]
 
     def set_speed(self, value: float) -> float:
         with self.cond:
@@ -332,7 +489,35 @@ class Reader:
         with self.cond:
             sentence = self.sentences[self.index][0] if self.index < len(self.sentences) else ""
             return {"state": self.state, "voice": self.settings["voice"], "speed": self.settings["speed"],
+                    "shadow": self.settings["shadow"], "panel": self.settings["panel"],
                     "sentence": sentence, "index": self.index, "count": len(self.sentences)}
+
+    def snapshot(self) -> dict:
+        """Everything the read-along panel draws, with times in seconds.
+
+        phase: "loading" (audio for this sentence not generated yet), "speaking"
+        (pos = seconds into the sentence) or "repeat" (shadowing; repeat and
+        repeatLeft give the gap's length and what is left of it).
+        """
+        with self.cond:
+            snap = self.status()
+            entry = self.cache.get(self.index)
+            if self.repeat_left:
+                phase = "repeat"
+            elif entry is None or entry[0] != self.key():
+                phase = "loading"
+            else:
+                phase = "speaking"
+            following = self.index + 1
+            snap.update({
+                "phase": phase,
+                "words": entry[2] if phase != "loading" else [[w, 0, 0] for w in snap["sentence"].split()],
+                "pos": round(self.pos / SAMPLE_RATE, 3),
+                "repeat": round(self.repeat_total / SAMPLE_RATE, 3),
+                "repeatLeft": round(self.repeat_left / SAMPLE_RATE, 3),
+                "next": self.sentences[following][0] if following < len(self.sentences) else "",
+            })
+            return snap
 
     def _touch(self):
         """Record a change; caller holds self.cond."""
@@ -344,6 +529,7 @@ class Reader:
 
     def _worker(self):
         published = -1
+        saved = (None, None)
         while True:
             with self.cond:
                 job = None
@@ -356,20 +542,32 @@ class Reader:
                     self.cond.wait()
                 finished = self.finished
                 version = self.version
+                place = (self.text_key, self.index)
+                count = len(self.sentences)
             if finished:
+                self.positions.forget(place[0])     # read to the end: next time starts over
+                saved = (None, None)
                 self.stop()
                 continue
+            if place != saved and place[0]:
+                self.positions.set(place[0], place[1], count)
+                saved = place
             if job:
                 index, sentence, ends_paragraph, key = job
                 try:
-                    audio = self._generate(sentence, ends_paragraph, key)
+                    audio, words = self._generate(sentence, ends_paragraph, key)
                 except Exception as error:  # a bad voice or odd text must not kill the reader
                     print(f"generation failed for sentence {index}: {error}", flush=True)
                     audio = np.zeros(int(SAMPLE_RATE * SENTENCE_GAP), np.float32)
-                self._store(index, key, audio)
+                    words = [[w, 0, 0] for w in sentence.split()]
+                self._store(index, key, audio, words)
             if version != published:
                 published = version
-                self.on_change()
+                for listener in self.listeners:
+                    try:
+                        listener()
+                    except Exception as error:
+                        print(f"listener failed: {error}", flush=True)
 
     def _next_job(self):
         """First sentence from the current one on whose audio is missing or stale."""
@@ -382,7 +580,7 @@ class Reader:
                 return (i, *self.sentences[i], key)
         return None
 
-    def _store(self, index: int, key: tuple, audio: np.ndarray):
+    def _store(self, index: int, key: tuple, audio: np.ndarray, words: list):
         with self.cond:
             if key != self.key() or index >= len(self.sentences):
                 return                  # settings changed or text replaced meanwhile
@@ -393,7 +591,9 @@ class Reader:
                     self.pos = int(self.pos * len(audio) / len(old[1]))
                 else:
                     self.pos = 0        # new voice: restart the sentence
-            self.cache[index] = (key, audio)
+            self.cache[index] = (key, audio, words)
+            if index == self.index:
+                self.version += 1       # the panel needs this sentence's new timings
             # Keep the previous sentence (for a quick replay) and the lookahead only.
             for i in [i for i in self.cache if i < self.index - 1 or i >= self.index + LOOKAHEAD]:
                 del self.cache[i]
@@ -562,7 +762,57 @@ def start_mpris(reader: Reader):
         loop.run_forever()
 
     threading.Thread(target=run, daemon=True).start()
-    reader.on_change = lambda: asyncio.run_coroutine_threadsafe(publish(), loop)
+    reader.listeners.append(lambda: asyncio.run_coroutine_threadsafe(publish(), loop))
+
+
+# --- event stream for the read-along panel ----------------------------------
+
+def start_events(reader: Reader):
+    """Send reader.snapshot() as one JSON line to every client on each change.
+
+    A client gets the current snapshot as soon as it connects. Sends have a
+    short timeout and a client that fails one is dropped, so a stuck panel can
+    never hold up reading.
+    """
+    if os.path.exists(EVENTS_PATH):
+        os.unlink(EVENTS_PATH)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(EVENTS_PATH)
+    os.chmod(EVENTS_PATH, 0o600)
+    server.listen(4)
+    clients: list[socket.socket] = []
+    lock = threading.Lock()
+
+    def line() -> bytes:
+        return (json.dumps(reader.snapshot(), ensure_ascii=False) + "\n").encode()
+
+    def send(conn: socket.socket, data: bytes) -> bool:
+        try:
+            conn.sendall(data)
+            return True
+        except OSError:
+            conn.close()
+            return False
+
+    def accept():
+        while True:
+            try:
+                conn, _ = server.accept()
+            except OSError:
+                return
+            conn.settimeout(0.5)
+            with lock:
+                if send(conn, line()):
+                    clients.append(conn)
+
+    def broadcast():
+        data = line()
+        with lock:
+            clients[:] = [c for c in clients if send(c, data)]
+
+    threading.Thread(target=accept, daemon=True).start()
+    reader.listeners.append(broadcast)
+    return server
 
 
 # --- socket server ----------------------------------------------------------
@@ -571,7 +821,13 @@ def handle(reader: Reader, request: str) -> str:
     command, _, body = request.partition("\n")
     verb, _, arg = command.partition(" ")
     if verb == "SPEAK":
-        reader.speak(body)
+        return json.dumps({**reader.status(), "resumed": reader.speak(body)})
+    elif verb == "RESTART":
+        reader.restart()
+    elif verb == "SHADOW":
+        reader.toggle_setting("shadow")
+    elif verb == "PANEL":
+        reader.toggle_setting("panel")
     elif verb == "STOP":
         reader.stop()
     elif verb == "PAUSE":
@@ -594,6 +850,7 @@ def handle(reader: Reader, request: str) -> str:
 def main():
     reader = Reader()
     start_mpris(reader)
+    events = start_events(reader)
     if os.path.exists(SOCKET_PATH):
         os.unlink(SOCKET_PATH)
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -626,8 +883,10 @@ def main():
     finally:
         reader.stop()
         server.close()
-        if os.path.exists(SOCKET_PATH):
-            os.unlink(SOCKET_PATH)
+        events.close()
+        for path in (SOCKET_PATH, EVENTS_PATH):
+            if os.path.exists(path):
+                os.unlink(path)
 
 
 if __name__ == "__main__":

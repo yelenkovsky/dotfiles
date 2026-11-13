@@ -2,9 +2,11 @@
 # Read the selected (or copied) text aloud with Kokoro TTS.
 #   read-aloud                  read new text, or stop if nothing new was selected
 #   read-aloud read -           read text from stdin
-#   read-aloud pause|next|prev|stop
+#   read-aloud pause|next|prev|stop|restart
 #   read-aloud faster|slower|speed 1.2
 #   read-aloud voice [bf_emma]  menu, or set directly
+#   read-aloud shadow|panel     toggle shadowing / the read-along panel
+#   read-aloud keys              menu of the shortcuts
 #   read-aloud status
 # Installed by setup/kokoro-reader.sh; code and venv in ~/.local/share/kokoro-reader.
 APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/kokoro-reader"

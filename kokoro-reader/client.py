@@ -15,7 +15,7 @@ LAST_PATH = os.path.join(RUNTIME_DIR, "kokoro-reader.last")
 LOG_PATH = os.path.expanduser("~/.local/state/kokoro-reader.log")
 CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kokoro-reader")
 SETTINGS_PATH = os.path.join(CONFIG_DIR, "settings.json")
-DEFAULTS = {"voice": "af_heart", "speed": 1.0}
+DEFAULTS = {"voice": "af_heart", "speed": 1.0, "shadow": False, "panel": True}
 SPEED_STEP = 0.1
 MIN_SPEED, MAX_SPEED = 0.5, 2.0
 
@@ -36,12 +36,33 @@ VOICES = [
     ("bm_fable", "Fable", "British · male"),
 ]
 
+# The keybindings (in dotfiles-private's hypr/bindings.lua), shown by `read-aloud keys`.
+# Picking a row in that menu runs its command.
+KEYS = [
+    ("Super+Alt+R", "Read the selection (PdfCraft: Ctrl+C first) / stop", "toggle"),
+    ("Super+Alt+E", "Pause / resume", "pause"),
+    ("Super+Alt+W", "Back a sentence (in the shadowing pause: replay)", "prev"),
+    ("Super+Alt+T", "Skip a sentence", "next"),
+    ("Super+Alt+Shift+W", "Back to the first sentence", "restart"),
+    ("Super+Alt+Z", "Slower", "slower"),
+    ("Super+Alt+X", "Faster", "faster"),
+    ("Super+Alt+V", "Choose a voice", "voice"),
+    ("Super+Alt+A", "Read-along panel on/off", "panel"),
+    ("Super+Alt+D", "Shadowing on/off (pause to repeat each sentence)", "shadow"),
+    ("Super+Alt+H", "This list", "keys"),
+    ("Media keys", "Play/pause, previous/next sentence", None),
+]
+
 USAGE = """usage: read-aloud [command]
   toggle        read what was selected or copied; stop if nothing new (default)
   read [-]      read the selection (or stdin with -), replacing anything playing
   stop | pause | next | prev
+  restart       back to the first sentence (a text read before resumes where it stopped)
   faster | slower | speed <0.5-2.0>
   voice [id]    pick a voice from a menu, or set one (e.g. bf_emma)
+  shadow        shadowing on/off: a pause after each sentence to repeat it aloud
+  panel         read-along panel on/off
+  keys          menu of the keyboard shortcuts; picking one runs it
   status"""
 
 
@@ -163,12 +184,15 @@ def read(text: str):
         return
     if send("STATUS") is None and not start_daemon():
         sys.exit(1)
-    send("SPEAK\n" + text)
+    status = send("SPEAK\n" + text) or {}
     # Show what is being read, so a selection that an app only half-published
     # (a few letters instead of a paragraph) is obvious rather than silent.
     words = len(text.split())
     preview = " ".join(text.split())[:80]
-    notify(f"{words} words: “{preview}{'…' if len(preview) == 80 else ''}”")
+    message = f"{words} words: “{preview}{'…' if len(preview) == 80 else ''}”"
+    if status.get("resumed"):
+        message += f"\nResuming at sentence {status['resumed'] + 1} of {status['count']} (read-aloud restart: from the top)"
+    notify(message)
 
 
 def toggle():
@@ -228,14 +252,50 @@ def set_voice(voice_id: str | None):
         read(f"Hello, I'm {name}. This is how I sound.")
 
 
+def show_keys():
+    # Menu rows are icon<TAB>name<TAB>description; the pick comes back without the icon.
+    rows = [f"{'󰌌' if cmd else '󰝚'}\t{key}\t{label}" for key, label, cmd in KEYS]
+    args = ["omarchy-menu-select", "Read aloud", *rows, "--", "--width", "640"]
+    picked = subprocess.run(args, capture_output=True, text=True, check=False).stdout.strip()
+    command = next((cmd for key, label, cmd in KEYS if picked.startswith(key + "\t")), None)
+    if command and command != "keys":
+        run(command, [])
+
+
+def toggle_setting(name: str, on_label: str, off_label: str, icon: str):
+    status = send(name.upper())
+    if status is None:          # daemon not running: change the saved setting
+        settings = load_settings()
+        settings[name] = not settings[name]
+        save_settings(settings)
+        value = settings[name]
+    elif "error" in status:
+        notify(status["error"])
+        return
+    else:
+        value = status[name]
+    osd(icon, on_label if value else off_label)
+
+
 def main():
     args = sys.argv[1:]
-    action = args[0] if args else "toggle"
+    run(args[0] if args else "toggle", args[1:])
 
+
+def run(action: str, rest: list[str]):
+    args = [action, *rest]
     if action == "toggle":
         toggle()
     elif action == "read":
         read(sys.stdin.read() if args[1:2] == ["-"] else selected_text()[0])
+    elif action == "keys":
+        show_keys()
+    elif action == "restart":
+        send("RESTART")
+    elif action == "shadow":
+        toggle_setting("shadow", "Shadowing on: repeat each sentence", "Shadowing off", "󰑖")
+    elif action == "panel":
+        toggle_setting("panel", "Read-along panel on", "Read-along panel off", "󰈙")
     elif action in ("stop", "pause", "next", "prev"):
         status = send(action.upper())
         if status and action == "pause" and status.get("state") != "stopped":

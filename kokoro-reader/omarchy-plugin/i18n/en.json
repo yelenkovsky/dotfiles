@@ -1,0 +1,9 @@
+{
+  "header.position": "%1 / %2",
+  "header.speed": "%1×",
+  "header.shadowing": "Shadowing",
+  "phase.loading": "Preparing the sentence…",
+  "phase.repeat": "Your turn: repeat it",
+  "phase.paused": "Paused",
+  "next.label": "Next"
+}

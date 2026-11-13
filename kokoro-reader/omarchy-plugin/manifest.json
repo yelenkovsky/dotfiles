@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "xbloc.read-along",
+  "name": "Read along",
+  "version": "1.0.0",
+  "author": "xbloc",
+  "license": "MIT",
+  "description": "Floating panel for the Kokoro read-aloud reader: the sentence being read with the spoken word highlighted, and a countdown for repeating it in shadowing mode.",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "ReadAlong.qml"
+  }
+}
