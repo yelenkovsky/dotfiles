@@ -6,8 +6,11 @@ without use so it does not hold VRAM all day.
 
 Control comes two ways:
   * a Unix socket for read-aloud (one request per connection, UTF-8):
-      SPEAK\\n<text>   read <text>, replacing anything being read; a text read
-                       before resumes at the sentence where it stopped
+      SPEAK [source]\\n<text>   read <text>, replacing anything being read; a
+                       text read before resumes at the sentence where it stopped;
+                       a word or two is said slowly, twice
+      APPEND [source]\\n<text>  queue <text> after what is being read
+      SAVE                     add the sentence being read to saved-sentences.md
       STOP | PAUSE (toggle) | NEXT | PREV | RESTART (back to sentence 1)
       SPEED <x> | SPEED +<d> | SPEED -<d>     set or step the speed
       VOICE <id>                               e.g. af_heart, bf_emma
@@ -56,6 +59,8 @@ RESTART_THRESHOLD = 2.0            # Previous within this many seconds goes back
 MIN_SPEED, MAX_SPEED = 0.5, 2.0
 SHADOW_FACTOR = 1.0                # repeat gap = sentence length × this ...
 SHADOW_EXTRA = 1.0                 # ... + this many seconds
+SLOW_SPEED = 0.7                   # a selection of a word or two is said at this speed ...
+SLOW_MAX_WORDS = 3                 # ... (up to this many words), twice
 MAX_POSITIONS = 200                # texts whose stopping point is remembered
 DEFAULTS = {"voice": "af_heart", "speed": 1.0, "shadow": False, "panel": True}
 
@@ -64,6 +69,9 @@ SOCKET_PATH = os.path.join(RUNTIME_DIR, "kokoro-reader.sock")
 EVENTS_PATH = os.path.join(RUNTIME_DIR, "kokoro-reader-events.sock")
 CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kokoro-reader")
 SETTINGS_PATH = os.path.join(CONFIG_DIR, "settings.json")
+PRONUNCIATIONS_PATH = os.path.join(CONFIG_DIR, "pronunciations.tsv")
+DATA_DIR = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), "kokoro-reader")
+SAVED_PATH = os.path.join(DATA_DIR, "saved-sentences.md")
 STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "kokoro-reader")
 POSITIONS_PATH = os.path.join(STATE_DIR, "positions.json")
 
@@ -135,6 +143,61 @@ class Positions:
             print(f"saving positions failed: {error}", flush=True)
 
 
+class Pronunciations:
+    """Words Kokoro says wrong, from pronunciations.tsv: word<TAB>respelling.
+
+    The respelling is ordinary letters ("SELL-ig-man") or Kokoro phonemes
+    between slashes ("/sˈɛlɪɡmən/"). Each word is replaced with Kokoro's
+    "[word](/phonemes/)" markup, which keeps the word itself as the token, so
+    the read-along timing still lines up. The file is reread when it changes.
+    """
+
+    def __init__(self):
+        self.mtime = None
+        self.entries: list[tuple[re.Pattern, str]] = []
+        self.phonemes: dict[tuple[str, str], str] = {}
+
+    def _load(self):
+        try:
+            mtime = os.stat(PRONUNCIATIONS_PATH).st_mtime
+        except OSError:
+            self.mtime, self.entries = None, []
+            return
+        if mtime == self.mtime:
+            return
+        entries = []
+        with open(PRONUNCIATIONS_PATH, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("#") or "\t" not in line:
+                    continue
+                word, _, say = line.rstrip("\n").partition("\t")
+                if word.strip() and say.strip():
+                    entries.append((re.compile(rf"(?<![\w\[])({re.escape(word.strip())})(?!\w)", re.IGNORECASE),
+                                    say.strip()))
+        self.mtime, self.entries = mtime, entries
+
+    def apply(self, sentence: str, pipeline, lang: str) -> str:
+        self._load()
+        for pattern, say in self.entries:
+            if not pattern.search(sentence):
+                continue
+            if say.startswith("/") and say.endswith("/") and len(say) > 2:
+                phonemes = say[1:-1]
+            else:
+                if (lang, say) not in self.phonemes:
+                    self.phonemes[(lang, say)] = pipeline.g2p(say.lower().replace("-", " "))[0].replace(" ", "").strip()
+                phonemes = self.phonemes[(lang, say)]
+            if phonemes:
+                sentence = pattern.sub(lambda m: f"[{m.group(1)}](/{phonemes}/)", sentence)
+        return sentence
+
+
+def is_word_lookup(text: str) -> bool:
+    """A selection of a word or two (not a sentence) is a pronunciation lookup."""
+    words = text.split()
+    return 0 < len(words) <= SLOW_MAX_WORDS and len(text) <= 60 and not re.search(r"[!?…]|\.\s", text)
+
+
 def clamp_speed(value: float) -> float:
     return round(min(MAX_SPEED, max(MIN_SPEED, value)), 2)
 
@@ -146,9 +209,42 @@ ABBREVIATIONS = {"mr", "mrs", "ms", "dr", "prof", "st", "jr", "sr", "vs", "etc",
 SENTENCE_END = re.compile(r"[.!?…]+[\"”’»)\]]*(?=\s+[\"“‘«(\[]?[A-Z0-9]|\s*$)")
 
 
+PAGE_NUMBER = re.compile(r"(?i)(page\s+)?\d{1,4}(\s+of\s+\d{1,4})?")
+# A page number next to a running header with no lowercase letters: "12 AGENCY", "AGENCY 13".
+NUMBERED_HEADER = re.compile(r"\d{1,4}\s+[^a-z\d\n]*[A-Z][^a-z\d\n]*|[^a-z\d\n]*[A-Z][^a-z\d\n]*\s+\d{1,4}")
+
+
+def strip_page_furniture(text: str) -> str:
+    """Drop page numbers and running headers that come along when pages are copied.
+
+    Removes lines that are only a page number, a page number with an
+    all-caps header, and short lines without end punctuation that repeat
+    (a header on every page). A heading that appears once ("CHAPTER I")
+    stays. Texts of one or two lines are left alone, so selecting just
+    "1984" still reads it.
+    """
+    lines = text.replace("\r", "").split("\n")
+    if len([line for line in lines if line.strip()]) < 3:
+        return text
+    stripped = [line.strip() for line in lines]
+    counts: dict[str, int] = {}
+    for line in stripped:
+        if line:
+            counts[line] = counts.get(line, 0) + 1
+
+    def furniture(line: str) -> bool:
+        if not line:
+            return False
+        if PAGE_NUMBER.fullmatch(line) or NUMBERED_HEADER.fullmatch(line):
+            return True
+        return counts[line] > 1 and len(line) <= 60 and not re.search(r"[.!?…:;,\"”’]$", line)
+
+    return "\n".join(line for line, s in zip(lines, stripped) if not furniture(s))
+
+
 def clean(text: str) -> str:
     """Undo the hard line breaks that PDF and ebook selections carry."""
-    text = text.replace("\r", "")
+    text = strip_page_furniture(text.replace("\r", ""))
     text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)      # re-join hyphenated words
     text = re.sub(r"\n{2,}", "\n", text)               # paragraph break -> one newline
     text = re.sub(r"(?<!\n)\n(?!\n)(?=[a-z,;])", " ", text)  # mid-sentence wraps
@@ -253,6 +349,9 @@ class Reader:
         self.stream = None
         self.positions = Positions()
         self.text_key = ""              # Positions key of the loaded text
+        self.source = ""                # window the text came from, for saved sentences
+        self.speed_override = None      # slow speed while a word lookup is read
+        self.pronunciations = Pronunciations()
         self.listeners = []             # called by the worker after each change
 
         threading.Thread(target=self._worker, daemon=True).start()
@@ -291,13 +390,15 @@ class Reader:
                     print(f"preloading {voice} failed: {error}", flush=True)
 
     def key(self) -> tuple:
-        return (self.settings["voice"], self.settings["speed"])
+        return (self.settings["voice"], self.speed_override or self.settings["speed"])
 
     def _generate(self, sentence: str, ends_paragraph: bool, key: tuple) -> tuple[np.ndarray, list]:
         voice, speed = key
         chunks, tokens = [], []
         offset = 0.0                    # a very long sentence comes back in several chunks
-        for r in self.pipeline_for(voice)(sentence, voice=voice, speed=speed, split_pattern=None):
+        pipeline = self.pipeline_for(voice)
+        text = self.pronunciations.apply(sentence, pipeline, voice[0])
+        for r in pipeline(text, voice=voice, speed=speed, split_pattern=None):
             if r.audio is None:
                 continue
             audio = r.audio.numpy()
@@ -374,16 +475,23 @@ class Reader:
 
     # commands (called from the socket thread and the MPRIS loop)
 
-    def speak(self, text: str) -> int:
-        """Read text, resuming where it stopped last time; returns that sentence index."""
-        sentences = split_sentences(text)
+    def speak(self, text: str, source: str = "") -> int:
+        """Read text, resuming where it stopped last time; returns that sentence index.
+
+        A word or two (is_word_lookup) is said slowly, twice, and not remembered.
+        """
+        lookup = is_word_lookup(text)
+        sentences = [(" ".join(text.split()), False), (" ".join(text.split()), True)] if lookup \
+            else split_sentences(text)
         if not sentences:
             return 0
         self._close_stream()
         with self.cond:
             self.sentences = sentences
-            self.text_key = Positions.key(sentences)
-            self.index = self.positions.get(self.text_key, len(sentences))
+            self.source = source
+            self.speed_override = min(SLOW_SPEED, self.settings["speed"]) if lookup else None
+            self.text_key = "" if lookup else Positions.key(sentences)
+            self.index = self.positions.get(self.text_key, len(sentences)) if self.text_key else 0
             self.pos = self.repeat_left = self.repeat_total = 0
             self.cache.clear()
             self.finished = False
@@ -393,11 +501,63 @@ class Reader:
         self._open_stream()
         return start
 
+    def append(self, text: str, source: str = "") -> int:
+        """Queue text after what is being read; returns the index of its first sentence.
+
+        With nothing being read (or a word lookup), it is read straight away.
+        """
+        sentences = split_sentences(text)
+        if not sentences:
+            return -1
+        with self.cond:
+            fresh = self.state == "stopped" or self.finished or self.speed_override is not None
+            if not fresh:
+                start = len(self.sentences)
+                self.sentences = self.sentences + sentences
+                self.text_key = Positions.key(self.sentences)
+                self._touch()
+                return start
+        self.speak(text, source)
+        return 0
+
+    def save_sentence(self) -> str:
+        """Append the sentence being read to SAVED_PATH; returns it ("" when nothing is read).
+
+        Within the first second of a sentence, the one before is meant: by the
+        time the key is pressed, the sentence that caught the ear has ended.
+        """
+        with self.cond:
+            if self.state == "stopped" or not self.sentences or self.speed_override is not None:
+                return ""
+            index = min(self.index, len(self.sentences) - 1)
+            if not self.repeat_left and self.pos < SAMPLE_RATE and index > 0:
+                index -= 1
+            sentence = self.sentences[index][0]
+            source = self.source
+        try:
+            with open(SAVED_PATH, encoding="utf-8") as f:
+                existing = f.read()
+        except OSError:
+            existing = "# Saved sentences\n\nSaved while listening with read-aloud (Super+Alt+B).\n"
+        if f"- {sentence}\n" in existing.split("## ")[-1]:
+            return sentence             # already saved under the latest heading
+        heading = f"## {time.strftime('%Y-%m-%d')}" + (f" · {source}" if source else "")
+        last_heading = next((line for line in reversed(existing.splitlines()) if line.startswith("## ")), None)
+        addition = ("" if existing.endswith("\n") else "\n")
+        if last_heading != heading:
+            addition += f"\n{heading}\n\n"
+        addition += f"- {sentence}\n"
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(SAVED_PATH, "w", encoding="utf-8") as f:
+            f.write(existing + addition)
+        return sentence
+
     def stop(self):
         self._close_stream()
         with self.cond:
             self.sentences = []
             self.text_key = ""
+            self.speed_override = None
             self.cache.clear()
             self.index = self.pos = self.repeat_left = self.repeat_total = 0
             self.finished = False
@@ -820,8 +980,13 @@ def start_events(reader: Reader):
 def handle(reader: Reader, request: str) -> str:
     command, _, body = request.partition("\n")
     verb, _, arg = command.partition(" ")
+    source = " ".join(arg.split())[:120]
     if verb == "SPEAK":
-        return json.dumps({**reader.status(), "resumed": reader.speak(body)})
+        return json.dumps({**reader.status(), "resumed": reader.speak(body, source)})
+    elif verb == "APPEND":
+        return json.dumps({**reader.status(), "queuedAt": reader.append(body, source)})
+    elif verb == "SAVE":
+        return json.dumps({**reader.status(), "saved": reader.save_sentence()})
     elif verb == "RESTART":
         reader.restart()
     elif verb == "SHADOW":
