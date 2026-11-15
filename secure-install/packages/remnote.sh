@@ -55,12 +55,25 @@ install_remnote_files() {
   # block self-update, so the installing user owns /opt/remnote.
   sudo chown -R "$owner:$group" "$REMNOTE_INSTALL_DIR"
   sudo chmod u+rwX "$REMNOTE_INSTALL_DIR" "$REMNOTE_INSTALL_DIR/$REMNOTE_APPIMAGE_NAME"
-  sudo ln -sfn "$REMNOTE_INSTALL_DIR/$REMNOTE_APPIMAGE_NAME" /usr/local/bin/remnote
+  # Launch through a wrapper rather than a symlink. Run from its FUSE mount,
+  # the AppImage unmounts as soon as the main process exits, while the
+  # sqlite_server child and crashpad are still shutting down; their next page
+  # fault on the vanished mount is a SIGBUS core dump on every close.
+  # APPIMAGE_EXTRACT_AND_RUN unpacks to a real directory instead, where
+  # cleanup only unlinks files the children still hold open, which is safe.
+  # The AppImage itself stays in place, so RemNote's self-update still works.
+  sudo rm -f /usr/local/bin/remnote
+  sudo tee /usr/local/bin/remnote >/dev/null <<EOF
+#!/bin/sh
+export APPIMAGE_EXTRACT_AND_RUN=1
+exec "$REMNOTE_INSTALL_DIR/$REMNOTE_APPIMAGE_NAME" --no-sandbox "\$@"
+EOF
+  sudo chmod 755 /usr/local/bin/remnote
   sudo tee /usr/share/applications/remnote.desktop >/dev/null <<EOF
 [Desktop Entry]
 Name=RemNote
 Comment=Note-taking and knowledge management
-Exec=$REMNOTE_INSTALL_DIR/$REMNOTE_APPIMAGE_NAME --no-sandbox %U
+Exec=/usr/local/bin/remnote %U
 Icon=remnote
 Terminal=false
 Type=Application
