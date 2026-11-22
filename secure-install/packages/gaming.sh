@@ -37,6 +37,17 @@ AUR_GAMING_PACKAGES=(
   mangojuice
 )
 
+# input-remapper turbo fire: hold the MX Master 3S back thumb button (mouse
+# button 4, BTN_SIDE) and it clicks the left button every ~30 ms. Left click
+# itself stays normal. The preset is per device group; input-remapper names a
+# group after its shortest device name ("Logitech MX Master 3S"). Change the
+# rate in the GUI (input-remapper-gtk) or in the repo file. The GUI writes
+# through the symlink, so its edits land in the repo.
+# Anti-cheat games (VAC, EAC, BattlEye) may ban macros; use it offline only.
+INPUT_REMAPPER_DEVICE="Logitech MX Master 3S"
+INPUT_REMAPPER_PRESET="turbo-fire"
+INPUT_REMAPPER_CONFIG_DIR="$HOME/.config/input-remapper-2"
+
 PROTON_CACHYOS_RELEASES_API="https://api.github.com/repos/CachyOS/proton-cachyos/releases?per_page=20"
 PROTON_CACHYOS_COMPAT_DIR="$HOME/.local/share/Steam/compatibilitytools.d"
 PROTON_CACHYOS_DOWNLOAD="$STATE_DIR/proton-cachyos-slr-v3-$TIMESTAMP.tar.xz"
@@ -313,9 +324,120 @@ install_proton_cachyos_slr_v3() {
   run_step "enable ntsync for Proton-CachyOS" install_proton_cachyos_ntsync
 }
 
+# Not in AUR_GAMING_PACKAGES: its setup.py installs into whatever python3 is
+# first on PATH. With mise's shims first, the package shipped files under
+# ~/.local/share/mise/... and pacman refused it as a file conflict (2026-11-22).
+# Build with system paths only so it lands in /usr/lib/python3.x. --rebuild
+# skips any broken package left in yay's cache from an earlier attempt.
+install_input_remapper() {
+  local -a command=(yay -S --needed --rebuild)
+
+  if ! command -v yay >/dev/null 2>&1; then
+    log "yay is not installed"
+    return 1
+  fi
+
+  if pacman -Q input-remapper-git >/dev/null 2>&1; then
+    log "input-remapper-git is already installed"
+    return 0
+  fi
+
+  [ "$ASSUME_YES" = true ] && command+=(--noconfirm)
+  env PATH="/usr/local/sbin:/usr/local/bin:/usr/bin" "${command[@]}" input-remapper-git
+}
+
+enable_input_remapper_service() {
+  if ! systemctl list-unit-files input-remapper.service >/dev/null 2>&1; then
+    log "No input-remapper.service; is input-remapper-git installed?"
+    return 1
+  fi
+
+  sudo systemctl enable --now input-remapper.service
+}
+
+# The input-remapper-* scripts start with "#!/usr/bin/env python3". In the
+# desktop session mise's shims come first on PATH, so that python3 is mise's,
+# which cannot import the system-wide inputremapper module: the GUI never
+# opens and login autoload fails. User-level copies of the .desktop files take
+# precedence over the system ones and call /usr/bin/python3 directly.
+# (The root service and the udev rule run with the system PATH and are fine.)
+INPUT_REMAPPER_SYSTEM_PYTHON="/usr/bin/python3"
+
+input_remapper_control() {
+  "$INPUT_REMAPPER_SYSTEM_PYTHON" /usr/bin/input-remapper-control "$@"
+}
+
+install_input_remapper_launchers() {
+  local -a pairs=(
+    "/usr/share/applications/input-remapper-gtk.desktop:$HOME/.local/share/applications/input-remapper-gtk.desktop"
+    "/etc/xdg/autostart/input-remapper-autoload.desktop:$HOME/.config/autostart/input-remapper-autoload.desktop"
+    "/etc/xdg/autostart/input-remapper-tray.desktop:$HOME/.config/autostart/input-remapper-tray.desktop"
+  )
+  local pair source target
+
+  for pair in "${pairs[@]}"; do
+    source="${pair%%:*}"
+    target="${pair#*:}"
+    if [ ! -f "$source" ]; then
+      log "Missing $source; is input-remapper-git installed?"
+      return 1
+    fi
+    mkdir -p "$(dirname "$target")"
+    sed -E "/^Exec=/s#(^|[ \"=])input-remapper-(gtk|control|tray)#\\1$INPUT_REMAPPER_SYSTEM_PYTHON /usr/bin/input-remapper-\\2#g" \
+      "$source" >"$target"
+    log "Wrote $target"
+  done
+}
+
+# Link the preset from the repo and set it to autoload for the device. The
+# udev rule shipped with input-remapper runs autoload whenever the receiver is
+# plugged in, so this also survives replugging and reboots.
+install_input_remapper_turbo_preset() {
+  local source="$SCRIPT_DIR/.config/input-remapper-2/presets/$INPUT_REMAPPER_DEVICE/$INPUT_REMAPPER_PRESET.json"
+  local preset_dir="$INPUT_REMAPPER_CONFIG_DIR/presets/$INPUT_REMAPPER_DEVICE"
+  local target="$preset_dir/$INPUT_REMAPPER_PRESET.json"
+
+  if [ ! -f "$source" ]; then
+    log "Missing input-remapper preset in the repo: $source"
+    return 1
+  fi
+
+  mkdir -p "$preset_dir"
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    mv "$target" "$target.bak-$TIMESTAMP"
+    log "Backed up existing preset to $target.bak-$TIMESTAMP"
+  fi
+  ln -sfn "$source" "$target"
+
+  python3 - "$INPUT_REMAPPER_CONFIG_DIR/config.json" "$INPUT_REMAPPER_DEVICE" "$INPUT_REMAPPER_PRESET" <<'PY'
+import json
+import os
+import sys
+
+path, device, preset = sys.argv[1:4]
+config = {}
+if os.path.exists(path):
+    with open(path, encoding="utf-8") as handle:
+        config = json.load(handle)
+autoload = config.setdefault("autoload", {})
+# Drop this preset from any other device it used to be on.
+for other in [d for d, p in autoload.items() if p == preset and d != device]:
+    del autoload[other]
+autoload[device] = preset
+with open(path, "w", encoding="utf-8") as handle:
+    json.dump(config, handle, indent=4)
+PY
+
+  input_remapper_control --command autoload || log "input-remapper autoload failed; plug the receiver in and rerun"
+}
+
 install_gaming() {
   install_package_group pacman "Gaming packages" PACMAN_GAMING_PACKAGES
   install_package_group yay "Gaming AUR packages" AUR_GAMING_PACKAGES
   run_step "add user to gamemode group" add_user_to_gamemode_group
+  run_step "install input-remapper" install_input_remapper
+  run_step "enable input-remapper service" enable_input_remapper_service
+  run_step "install input-remapper launchers" install_input_remapper_launchers
+  run_step "install input-remapper turbo-fire preset" install_input_remapper_turbo_preset
   install_proton_cachyos_slr_v3
 }
