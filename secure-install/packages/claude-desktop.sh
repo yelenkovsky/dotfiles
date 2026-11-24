@@ -158,10 +158,13 @@ install_claude_desktop_files() {
   # (same as chromium-flags.conf on this machine). chrome-sandbox cannot be
   # setuid on a user-owned tree. Remove any previous path first so the
   # redirect cannot follow a symlink into the app tree.
+  # Run under XWayland: on native Wayland (Hyprland) the Code tab's animated
+  # theme backdrops only draw new frames after input, so they freeze or go
+  # black after a few idle seconds. XWayland animates them continuously.
   rm -f "$CLAUDE_DESKTOP_LAUNCHER"
   cat >"$CLAUDE_DESKTOP_LAUNCHER" <<EOF
 #!/bin/bash
-exec $CLAUDE_DESKTOP_INSTALL_DIR/claude-desktop --password-store=gnome-libsecret --no-sandbox --ozone-platform-hint=auto "\$@"
+exec $CLAUDE_DESKTOP_INSTALL_DIR/claude-desktop --password-store=gnome-libsecret --no-sandbox --ozone-platform=x11 "\$@"
 EOF
   chmod 755 "$CLAUDE_DESKTOP_LAUNCHER"
   write_claude_desktop_autostart_override
